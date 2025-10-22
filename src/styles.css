@@ -1,0 +1,21 @@
+:root { --bg:#0f1320; --fg:#e9eefb; --muted:#9fb0d9; --acc:#4e7cff; }
+*{ box-sizing:border-box }
+body{ margin:0; font-family:Inter,system-ui,Arial; background:var(--bg); color:var(--fg) }
+.container{ max-width:980px; margin:0 auto; padding:24px }
+.header{ display:flex; gap:12px; align-items:center; padding:12px 0 }
+.role-picker{ display:grid; place-items:center; gap:12px; padding:24px }
+button{ background:var(--acc); color:#fff; border:0; padding:10px 16px; border-radius:10px; cursor:pointer }
+button:disabled{ opacity:.6; cursor:not-allowed }
+.row{ display:flex; gap:12px; align-items:center; margin:12px 0 }
+.tabs{ display:flex; gap:8px; margin:12px 0 }
+.tabs .active{ outline:2px solid var(--acc) }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px }
+.card{ background:#151a2e; border:1px solid #263159; border-radius:12px; padding:10px; text-align:center }
+.card img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px }
+.card.picked{ outline:3px solid var(--acc) }
+.list{ list-style:none; padding:0; margin:0; display:grid; gap:8px }
+.tag{ background:#223; color:#9cf; padding:2px 8px; border-radius:8px; margin-right:8px }
+.center{ display:grid; place-items:center; height:60vh; gap:12px }
+.logo{ width:120px; opacity:.9 }
+.actions{ margin-top:12px }
+pre{ background:#11162a; padding:12px; border-radius:8px; overflow:auto }
