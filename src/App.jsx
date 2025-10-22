@@ -10,12 +10,33 @@ export default function App(){
   const { userType, setUserType, session, pollSession } = useStore()
 
   useEffect(() => {
+    // polling da sessão
     pollSession()
     const t = setInterval(pollSession, Number(import.meta.env.VITE_POLL || 2000))
     return () => clearInterval(t)
   }, [])
 
-  // 🔹 Sempre exibe a escolha se não houver tipo salvo
+  useEffect(() => {
+    // Suporte a reset/forçar perfil pela URL
+    const params = new URLSearchParams(window.location.search)
+    const reset = params.get('reset')
+    const role = params.get('role') // 'member' ou 'tech'
+
+    if (reset === '1') {
+      localStorage.removeItem('userType')
+      setUserType('')
+      // limpa a querystring da URL
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+
+    if (role === 'member' || role === 'tech') {
+      localStorage.setItem('userType', role)
+      setUserType(role)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [setUserType])
+
+  // Tela de escolha quando não há userType
   if (!userType) {
     return (
       <div className="container role-picker">
@@ -29,6 +50,7 @@ export default function App(){
     )
   }
 
+  // Renderização normal
   return (
     <div className="container">
       <Header />
