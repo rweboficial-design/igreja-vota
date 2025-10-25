@@ -43,7 +43,6 @@ export default function VotingScreen() {
     setSending(true);
     setShowSuccess(true);
 
-    // troca pra tela aguardando após breve delay
     setTimeout(() => setStage("none"), 1200);
 
     try {
@@ -87,14 +86,16 @@ export default function VotingScreen() {
               boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
             }}
           >
-            <h4 style={{ marginBottom: 8 }}>Voto registrado!</h4>
-            <p>Obrigado por participar.</p>
+            <h4 style={{ marginBottom: 8, color: "#0f172a" }}>
+              Voto registrado!
+            </h4>
+            <p style={{ color: "#334155" }}>Obrigado por participar.</p>
           </div>
         </div>
       )}
 
       {candidates.length === 0 ? (
-        <p>Nenhum candidato disponível.</p>
+        <p style={{ color: "#e2e8f0" }}>Nenhum candidato disponível.</p>
       ) : (
         <div
           style={{
@@ -163,7 +164,7 @@ export default function VotingScreen() {
                     <span
                       style={{
                         fontSize: 28,
-                        color: "#9ca3af",
+                        color: "#2563eb",
                       }}
                     >
                       👤
@@ -175,7 +176,7 @@ export default function VotingScreen() {
                     marginTop: 8,
                     fontWeight: 600,
                     fontSize: 14,
-                    color: "#fff",
+                    color: "#0f172a",
                   }}
                 >
                   {c.name}
@@ -184,7 +185,7 @@ export default function VotingScreen() {
                   <div
                     style={{
                       fontSize: 12,
-                      color: "#22c55e",
+                      color: "#16a34a",
                       marginTop: 4,
                       fontWeight: 500,
                     }}
