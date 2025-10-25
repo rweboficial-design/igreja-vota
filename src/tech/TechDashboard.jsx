@@ -1,135 +1,245 @@
-import React, { useEffect, useState } from 'react';
-import useStore from '../store';
-import { api } from '../api';
-import ConfigPage from './ConfigPage';
-import MinistriesPage from './MinistriesPage';
-import RolesPage from './RolesPage';
-import MembersPage from './MembersPage';
-import L from '../UI/labels';
+import React, { useEffect, useState } from "react";
+import useStore from "../store";
+import { api } from "../api";
+import ConfigPage from "./ConfigPage";
+import MinistriesPage from "./MinistriesPage";
+import RolesPage from "./RolesPage";
+import MembersPage from "./MembersPage";
 
-export default function TechDashboard(){
-  const { session, setStage } = useStore();
-  const [tab, setTab] = useState('control');
-  const [ministries, setMinistries] = useState([]);
-  const [roles, setRoles] = useState([]);
-  const [selectedMin, setSelectedMin] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
+// === NOVO BLOCO DE ESTADO E TELA DE ACOMPANHAMENTO ===
+function ProgressPanel({ session }) {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Carrega listas base
-  useEffect(()=>{
-    api('ministries').then(setMinistries);
-    api('roles').then(setRoles);
-  },[]);
-
-  // Quando mudar o ministério selecionado, se o cargo atual não pertencer a ele, limpa a seleção de cargo
-  useEffect(()=>{
-    if (!selectedMin) { setSelectedRole(''); return; }
-    if (selectedRole) {
-      const ok = roles.some(r => r.id === selectedRole && r.ministry_id === selectedMin);
-      if (!ok) setSelectedRole('');
+  // busca status da votação ativa
+  async function fetchStatus() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/status");
+      const data = await res.json();
+      setStatus(data);
+    } catch (e) {
+      console.error("Falha ao buscar status:", e);
+    } finally {
+      setLoading(false);
     }
-  }, [selectedMin, selectedRole, roles]);
+  }
 
-  // Sempre que entrar na aba "control", atualiza listas (útil depois que você cria/edita ministérios/cargos nas outras abas)
-  useEffect(()=>{
-    if (tab === 'control') {
-      api('ministries').then(setMinistries);
-      api('roles').then(setRoles);
-    }
-  }, [tab]);
-
-  const startIndication = ()=> setStage('indication', selectedMin, selectedRole);
-  const startVoting    = ()=> setStage('voting',    selectedMin, selectedRole);
-  const goIdle         = ()=> setStage('none');
-
-  const tabs = [
-    { key:'control',    label:L.tab_control },
-    { key:'config',     label:L.tab_config },
-    { key:'ministries', label:L.tab_ministries },
-    { key:'roles',      label:L.tab_roles },
-    { key:'members',    label:L.tab_members },
-  ];
+  // atualiza a cada 5 segundos
+  useEffect(() => {
+    fetchStatus();
+    const timer = setInterval(fetchStatus, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div>
-      <nav className="tabs">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            className={tab===t.key ? 'active' : ''}
-            onClick={()=>setTab(t.key)}
-            title={t.label}
+    <div style={{ marginTop: 24 }}>
+      <h3>📊 Andamento da Votação</h3>
+      {loading && <p>Atualizando...</p>}
+      {status ? (
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 8,
+            padding: 12,
+            marginTop: 8,
+            background: "#f9fafb",
+          }}
+        >
+          <p>
+            <strong>Ministério:</strong> {status.ministry_name || "-"}
+          </p>
+          <p>
+            <strong>Cargo:</strong> {status.role_name || "-"}
+          </p>
+          <p>
+            <strong>Membros logados:</strong> {status.total_members || 0}
+          </p>
+          <p>
+            <strong>Votos recebidos:</strong> {status.voted_count || 0}
+          </p>
+
+          <div
+            style={{
+              background: "#e5e7eb",
+              borderRadius: 6,
+              overflow: "hidden",
+              height: 14,
+              marginTop: 8,
+            }}
           >
-            {t.label}
+            <div
+              style={{
+                width: `${
+                  status.total_members
+                    ? (status.voted_count / status.total_members) * 100
+                    : 0
+                }%`,
+                background: "#22c55e",
+                height: "100%",
+                transition: "width .3s",
+              }}
+            />
+          </div>
+
+          <p style={{ fontSize: 12, marginTop: 4, color: "#555" }}>
+            {status.total_members
+              ? `${status.voted_count}/${status.total_members} membros já votaram`
+              : "Aguardando dados dos membros..."}
+          </p>
+        </div>
+      ) : (
+        <p>Nenhuma votação ativa no momento.</p>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
+
+export default function TechDashboard() {
+  const { session, setStage } = useStore();
+  const [tab, setTab] = useState("control");
+  const [ministries, setMinistries] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [selectedMin, setSelectedMin] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
+
+  useEffect(() => {
+    api("ministries").then(setMinistries);
+    api("roles").then(setRoles);
+  }, []);
+
+  const startIndication = () => setStage("indication", selectedMin, selectedRole);
+  const startVoting = () => setStage("voting", selectedMin, selectedRole);
+  const goIdle = () => setStage("none");
+
+  return (
+    <div style={{ padding: 16 }}>
+      <nav className="tabs" style={{ marginBottom: 16 }}>
+        {["control", "config", "ministries", "roles", "members"].map((t) => (
+          <button
+            key={t}
+            className={tab === t ? "active" : ""}
+            onClick={() => setTab(t)}
+            style={{
+              marginRight: 8,
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #ccc",
+              background: tab === t ? "#22c55e" : "#fff",
+              color: tab === t ? "#fff" : "#333",
+              cursor: "pointer",
+            }}
+          >
+            {t === "control" && "Controle"}
+            {t === "config" && "Configurações"}
+            {t === "ministries" && "Ministérios"}
+            {t === "roles" && "Cargos"}
+            {t === "members" && "Membros"}
           </button>
         ))}
       </nav>
 
-      {tab==='control' && (
+      {tab === "control" && (
         <div>
-          <h2>{L.control_title}</h2>
-
-          <div className="row">
+          <h2>Controle da Sessão</h2>
+          <div className="row" style={{ marginTop: 12 }}>
             <select
               value={selectedMin}
-              onChange={e=>setSelectedMin(e.target.value)}
-              aria-label="Ministério"
+              onChange={(e) => setSelectedMin(e.target.value)}
             >
-              <option value="">{L.select_ministry}</option>
-              {ministries.map(m=> (
-                <option key={m.id} value={m.id}>{m.name}</option>
+              <option value="">Selecione o ministério…</option>
+              {ministries.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
               ))}
             </select>
-
             <select
               value={selectedRole}
-              onChange={e=>setSelectedRole(e.target.value)}
-              aria-label="Cargo"
+              onChange={(e) => setSelectedRole(e.target.value)}
             >
-              <option value="">{L.select_role}</option>
+              <option value="">Selecione o cargo…</option>
               {roles
-                .filter(r => !selectedMin || r.ministry_id === selectedMin)
-                .map(r => <option key={r.id} value={r.id}>{r.name}</option>)
-              }
+                .filter((r) => !selectedMin || r.ministry_id === selectedMin)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
             </select>
           </div>
 
-          <div className="row">
+          <div className="row" style={{ marginTop: 12 }}>
             <button
               onClick={startIndication}
               disabled={!selectedMin || !selectedRole}
-              title={!selectedMin || !selectedRole ? L.warn_pick_min_role : undefined}
+              style={{
+                marginRight: 6,
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #22c55e",
+                background: "#22c55e",
+                color: "#fff",
+              }}
             >
-              {L.btn_indication}
+              Iniciar Indicação
             </button>
-
             <button
               onClick={startVoting}
               disabled={!selectedMin || !selectedRole}
-              title={!selectedMin || !selectedRole ? L.warn_pick_min_role : undefined}
+              style={{
+                marginRight: 6,
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #2563eb",
+                background: "#2563eb",
+                color: "#fff",
+              }}
             >
-              {L.btn_voting}
+              Iniciar Votação
             </button>
-
-            <button onClick={goIdle}>
-              {L.btn_waiting}
+            <button
+              onClick={goIdle}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+              }}
+            >
+              Aguardar
             </button>
           </div>
 
-          <div className="row">
-            <a href="/api/report" target="_blank" rel="noreferrer">
-              {L.link_pdf}
+          <div className="row" style={{ marginTop: 16 }}>
+            <a
+              href="/api/report"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: "#2563eb",
+                textDecoration: "underline",
+                fontWeight: 600,
+              }}
+            >
+              Baixar Relatório (PDF)
             </a>
           </div>
 
-          <pre>sessão: {JSON.stringify(session,null,2)}</pre>
+          {/* BLOCO DE ANDAMENTO */}
+          <ProgressPanel session={session} />
+
+          <pre style={{ marginTop: 24, fontSize: 12, background: "#f1f5f9" }}>
+            sessão: {JSON.stringify(session, null, 2)}
+          </pre>
         </div>
       )}
 
-      {tab==='config'      && <ConfigPage/>}
-      {tab==='ministries'  && <MinistriesPage/>}
-      {tab==='roles'       && <RolesPage/>}
-      {tab==='members'     && <MembersPage/>}
+      {tab === "config" && <ConfigPage />}
+      {tab === "ministries" && <MinistriesPage />}
+      {tab === "roles" && <RolesPage />}
+      {tab === "members" && <MembersPage />}
     </div>
   );
 }
