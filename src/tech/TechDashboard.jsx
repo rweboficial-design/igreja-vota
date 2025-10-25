@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
-import useStore from '../store'
-import { api } from '../api'
-import ConfigPage from './ConfigPage'
-import MinistriesPage from './MinistriesPage'
-import RolesPage from './RolesPage'
+import React, { useEffect, useState } from 'react';
+import useStore from '../store';
+import { api } from '../api';
+import ConfigPage from './ConfigPage';
+import MinistriesPage from './MinistriesPage';
+import RolesPage from './RolesPage';
 import MembersPage from './MembersPage';
 
 export default function TechDashboard(){
