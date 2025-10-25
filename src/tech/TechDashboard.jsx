@@ -82,7 +82,7 @@ export default function TechDashboard() {
     }
   }
 
-  // Efeito de inicialização CORRETO (sem IIFE, com cleanup do intervalo)
+  // Efeito de inicialização e atualização
   useEffect(() => {
     let cancelled = false;
 
@@ -153,7 +153,7 @@ export default function TechDashboard() {
   const selectStyle = {
     background: '#1f2937',
     color: '#f9fafb',
-    border: '1px solid '#374151',
+    border: '1px solid #374151', // <- CORRIGIDO
     borderRadius: 6,
     padding: '8px',
     minWidth: 220,
@@ -344,6 +344,7 @@ export default function TechDashboard() {
                 <button onClick={goIdle} style={dangerButton} title="Encerrar sessão (aguardar)">
                   Encerrar Sessão
                 </button>
+
               </div>
 
               <div style={{ marginTop: 16 }}>
