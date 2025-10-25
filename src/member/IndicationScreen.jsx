@@ -99,14 +99,16 @@ export default function IndicationScreen() {
               boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
             }}
           >
-            <h4 style={{ marginBottom: 8 }}>Indicação enviada!</h4>
-            <p>Obrigado por participar.</p>
+            <h4 style={{ marginBottom: 8, color: "#0f172a" }}>
+              Indicação enviada!
+            </h4>
+            <p style={{ color: "#334155" }}>Obrigado por participar.</p>
           </div>
         </div>
       )}
 
       {members.length === 0 ? (
-        <p>Nenhum membro disponível.</p>
+        <p style={{ color: "#e2e8f0" }}>Nenhum membro disponível.</p>
       ) : (
         <div
           style={{
@@ -175,7 +177,7 @@ export default function IndicationScreen() {
                     <span
                       style={{
                         fontSize: 28,
-                        color: "#9ca3af",
+                        color: "#2563eb",
                       }}
                     >
                       👤
@@ -187,7 +189,7 @@ export default function IndicationScreen() {
                     marginTop: 8,
                     fontWeight: 600,
                     fontSize: 14,
-                    color: "#fff",
+                    color: "#0f172a",
                   }}
                 >
                   {m.name}
@@ -196,7 +198,7 @@ export default function IndicationScreen() {
                   <div
                     style={{
                       fontSize: 12,
-                      color: "#22c55e",
+                      color: "#16a34a",
                       marginTop: 4,
                       fontWeight: 500,
                     }}
