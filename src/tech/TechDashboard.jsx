@@ -5,7 +5,7 @@ import ConfigPage from './ConfigPage';
 import MinistriesPage from './MinistriesPage';
 import RolesPage from './RolesPage';
 import MembersPage from './MembersPage';
-import L from '../ui/labels';
+import L from '../UI/labels';
 
 export default function TechDashboard(){
   const { session, setStage } = useStore();
