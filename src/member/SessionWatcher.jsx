@@ -5,7 +5,7 @@ export default function SessionWatcher() {
   const { stage, setStage, isTech } = useStore();
 
   useEffect(() => {
-    if (isTech) return; // técnico não precisa mudar de tela
+    if (isTech) return;
     let stop = false;
 
     async function tick() {
@@ -18,14 +18,11 @@ export default function SessionWatcher() {
         if (!stop && next !== stage) {
           setStage(next, ministry_id, role_id);
         }
-      } catch (e) {
-        // silencioso
-      }
+      } catch {}
     }
 
-    // roda já e a cada 3s
     tick();
-    const it = setInterval(tick, 3000);
+    const it = setInterval(tick, 10000); // 10s (antes era 3s)
     return () => {
       stop = true;
       clearInterval(it);
