@@ -13,11 +13,25 @@ export default function TechDashboard() {
   const [roles, setRoles] = useState([]);
   const [selectedMin, setSelectedMin] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
+  const [status, setStatus] = useState(null);
 
   useEffect(() => {
     api('ministries').then(setMinistries);
     api('roles').then(setRoles);
+    loadStatus();
+    const interval = setInterval(loadStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  const loadStatus = async () => {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      setStatus(data);
+    } catch (e) {
+      console.error('Erro ao carregar status:', e);
+    }
+  };
 
   const startIndication = () => setStage('indication', selectedMin, selectedRole);
   const startVoting = () => setStage('voting', selectedMin, selectedRole);
@@ -64,15 +78,16 @@ export default function TechDashboard() {
     fontWeight: 600,
   });
 
+  const progressPercent =
+    status && status.total_members > 0
+      ? Math.round((status.voted_count / status.total_members) * 100)
+      : 0;
+
   return (
     <div style={{ color: '#f9fafb', padding: 20 }}>
       <nav style={{ marginBottom: 20 }}>
         {['control', 'config', 'ministries', 'roles', 'members'].map((t) => (
-          <button
-            key={t}
-            style={tabButton(t)}
-            onClick={() => setTab(t)}
-          >
+          <button key={t} style={tabButton(t)} onClick={() => setTab(t)}>
             {t === 'control'
               ? 'Controle'
               : t === 'config'
@@ -89,60 +104,134 @@ export default function TechDashboard() {
       {tab === 'control' && (
         <div>
           <h2 style={{ marginBottom: 12 }}>Controle da Sessão</h2>
+
+          {/* STATUS ATUAL */}
           <div
             style={{
-              display: 'flex',
-              gap: 12,
-              flexWrap: 'wrap',
-              marginBottom: 16,
+              background: '#1f2937',
+              padding: 16,
+              borderRadius: 8,
+              marginBottom: 20,
             }}
           >
-            <select
-              value={selectedMin}
-              onChange={(e) => setSelectedMin(e.target.value)}
-              style={selectStyle}
-            >
-              <option value="">Selecione o ministério…</option>
-              {ministries.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              style={selectStyle}
-            >
-              <option value="">Selecione o cargo…</option>
-              {roles
-                .filter((r) => !selectedMin || r.ministry_id === selectedMin)
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-            </select>
+            <h3 style={{ marginTop: 0, color: '#22c55e' }}>📊 Andamento da Sessão</h3>
+            {status ? (
+              <>
+                <p>
+                  <strong>Ministério:</strong> {status.ministry_name || '-'}
+                  <br />
+                  <strong>Cargo:</strong> {status.role_name || '-'}
+                  <br />
+                  <strong>Tipo de Sessão:</strong>{' '}
+                  {status.voting_active
+                    ? 'Votação'
+                    : status.indication_active
+                    ? 'Indicação'
+                    : 'Nenhuma ativa'}
+                </p>
+
+                <div style={{ marginTop: 8 }}>
+                  <strong>Membros logados:</strong> {status.total_members || 0}
+                  <br />
+                  <strong>Participantes que já votaram:</strong>{' '}
+                  {status.voted_count || 0}
+                </div>
+
+                <div
+                  style={{
+                    background: '#374151',
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    height: 14,
+                    marginTop: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${progressPercent}%`,
+                      height: '100%',
+                      background: '#22c55e',
+                      transition: 'width .3s ease',
+                    }}
+                  ></div>
+                </div>
+
+                <p style={{ fontSize: 12, marginTop: 6 }}>
+                  Progresso: {progressPercent}%
+                </p>
+              </>
+            ) : (
+              <p style={{ color: '#9ca3af' }}>Carregando status...</p>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              onClick={startIndication}
-              style={baseButton}
-              disabled={!selectedMin || !selectedRole}
+          {/* CONTROLE DE VOTAÇÃO */}
+          <div
+            style={{
+              background: '#1f2937',
+              padding: 16,
+              borderRadius: 8,
+            }}
+          >
+            <h3 style={{ marginTop: 0, color: '#3b82f6' }}>
+              ⚙️ Controle de Votação / Indicação
+            </h3>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                flexWrap: 'wrap',
+                marginBottom: 16,
+              }}
             >
-              Iniciar Indicação
-            </button>
-            <button
-              onClick={startVoting}
-              style={secondaryButton}
-              disabled={!selectedMin || !selectedRole}
-            >
-              Iniciar Votação
-            </button>
-            <button onClick={goIdle} style={dangerButton}>
-              Encerrar Sessão
-            </button>
+              <select
+                value={selectedMin}
+                onChange={(e) => setSelectedMin(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">Selecione o ministério…</option>
+                {ministries.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">Selecione o cargo…</option>
+                {roles
+                  .filter((r) => !selectedMin || r.ministry_id === selectedMin)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button
+                onClick={startIndication}
+                style={baseButton}
+                disabled={!selectedMin || !selectedRole}
+              >
+                Iniciar Indicação
+              </button>
+              <button
+                onClick={startVoting}
+                style={secondaryButton}
+                disabled={!selectedMin || !selectedRole}
+              >
+                Iniciar Votação
+              </button>
+              <button onClick={goIdle} style={dangerButton}>
+                Encerrar Sessão
+              </button>
+            </div>
           </div>
 
           <div style={{ marginTop: 20 }}>
@@ -159,19 +248,6 @@ export default function TechDashboard() {
               📄 Baixar Relatório (PDF)
             </a>
           </div>
-
-          <pre
-            style={{
-              marginTop: 16,
-              background: '#1f2937',
-              padding: 12,
-              borderRadius: 6,
-              overflowX: 'auto',
-              maxHeight: 200,
-            }}
-          >
-            sessão: {JSON.stringify(session, null, 2)}
-          </pre>
         </div>
       )}
 
