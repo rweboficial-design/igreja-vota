@@ -7,6 +7,7 @@ export default function IndicationScreen() {
   const [selected, setSelected] = useState([]);
   const [sending, setSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const did = useRef(false);
 
   const MAX_SELECTION = 3;
@@ -36,30 +37,22 @@ export default function IndicationScreen() {
 
   const handleSelect = (m) => {
     const exists = selected.find((x) => x.id === m.id);
-    if (exists) {
-      setSelected(selected.filter((x) => x.id !== m.id));
-    } else {
-      if (selected.length < MAX_SELECTION)
-        setSelected([...selected, m]);
-      else
-        alert(`Você só pode indicar até ${MAX_SELECTION} membros.`);
+    if (exists) setSelected(selected.filter((x) => x.id !== m.id));
+    else {
+      if (selected.length < MAX_SELECTION) setSelected([...selected, m]);
+      else alert(`Você só pode indicar até ${MAX_SELECTION} membros.`);
     }
   };
 
   async function handleSend() {
+    setErrorMsg("");
     if (selected.length === 0) {
       alert("Selecione pelo menos um membro antes de enviar.");
       return;
     }
-
     setSending(true);
-    setShowSuccess(true);
-
-    // troca pra tela aguardando após breve delay
-    setTimeout(() => setStage("none"), 1200);
-
     try {
-      await fetch("/api/indications", {
+      const res = await fetch("/api/indications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -68,8 +61,19 @@ export default function IndicationScreen() {
           nominees: selected.map((s) => s.id),
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Não foi possível registrar as indicações.");
+      }
+
+      // sucesso -> mostra popup e só então vai para Aguardando
+      setShowSuccess(true);
+      setTimeout(() => setStage("none"), 1000);
     } catch (e) {
-      console.error("Falha ao registrar indicações:", e);
+      console.error("Erro ao enviar indicações:", e);
+      setErrorMsg(e.message || "Falha ao enviar. Tente novamente.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -107,6 +111,12 @@ export default function IndicationScreen() {
         </div>
       )}
 
+      {errorMsg && (
+        <p style={{ color: "#ef4444", fontWeight: 600, marginTop: 8 }}>
+          {errorMsg}
+        </p>
+      )}
+
       {members.length === 0 ? (
         <p style={{ color: "#e2e8f0" }}>Nenhum membro disponível.</p>
       ) : (
@@ -120,7 +130,6 @@ export default function IndicationScreen() {
         >
           {members.map((m) => {
             const isSel = selected.some((x) => x.id === m.id);
-
             const baseStyle = {
               cursor: "pointer",
               textAlign: "center",
@@ -131,7 +140,6 @@ export default function IndicationScreen() {
                 "transform .08s ease, box-shadow .12s ease, border-color .12s ease",
               background: "#fff",
             };
-
             const selStyle = isSel
               ? {
                   borderColor: "#22c55e",
@@ -140,7 +148,6 @@ export default function IndicationScreen() {
                   background: "#f0fdf4",
                 }
               : {};
-
             return (
               <button
                 key={m.id}
@@ -157,9 +164,7 @@ export default function IndicationScreen() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: isSel
-                      ? "2px solid #22c55e"
-                      : "2px solid transparent",
+                    border: isSel ? "2px solid #22c55e" : "2px solid transparent",
                     overflow: "hidden",
                   }}
                 >
@@ -167,41 +172,20 @@ export default function IndicationScreen() {
                     <img
                       src={m.photo_url}
                       alt={m.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <span
-                      style={{
-                        fontSize: 28,
-                        color: "#2563eb",
-                      }}
-                    >
-                      👤
-                    </span>
+                    <span style={{ fontSize: 28, color: "#2563eb" }}>👤</span>
                   )}
                 </div>
                 <div
-                  style={{
-                    marginTop: 8,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    color: "#0f172a",
-                  }}
+                  style={{ marginTop: 8, fontWeight: 600, fontSize: 14, color: "#0f172a" }}
                 >
                   {m.name}
                 </div>
                 {isSel && (
                   <div
-                    style={{
-                      fontSize: 12,
-                      color: "#16a34a",
-                      marginTop: 4,
-                      fontWeight: 500,
-                    }}
+                    style={{ fontSize: 12, color: "#16a34a", marginTop: 4, fontWeight: 500 }}
                   >
                     Selecionado
                   </div>
