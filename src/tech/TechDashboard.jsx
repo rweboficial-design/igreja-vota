@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// src/tech/TechDashboard.jsx
+import React, { useEffect, useState } from 'react';
 import useStore from '../store';
 import { api } from '../api';
 import ConfigPage from './ConfigPage';
@@ -8,89 +9,175 @@ import MembersPage from './MembersPage';
 import { useMembersMap } from '../utils/useMembersMap';
 
 export default function TechDashboard(){
-  const { session, setStage } = useStore()
-  const [tab, setTab] = useState('control')
-  const [ministries, setMinistries] = useState([])
-  const [roles, setRoles] = useState([])
-  const [selectedMin, setSelectedMin] = useState('')
-  const [selectedRole, setSelectedRole] = useState('')
+  const { session, setStage } = useStore();
 
-  // estados do botão de resultados
-  const [loadingResults, setLoadingResults] = useState(false)
-  const [results, setResults] = useState([])
-  const [errorResults, setErrorResults] = useState('')
-  const { byId: memberNames } = useMembersMap()
+  const [tab, setTab] = useState('control');
 
-  useEffect(()=>{ api('ministries').then(setMinistries); api('roles').then(setRoles) },[])
+  const [ministries, setMinistries] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [selectedMin, setSelectedMin] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
 
-  const startIndication = ()=> setStage('indication', selectedMin, selectedRole)
-  const startVoting = ()=> setStage('voting', selectedMin, selectedRole)
-  const goIdle = ()=> setStage('none')
+  // estados dos resultados (cargo selecionado)
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [results, setResults] = useState([]); // [{ id, name, count }]
+  const [errorResults, setErrorResults] = useState('');
+  const { byId: memberNames } = useMembersMap();
 
-  // Função para gerar resultados
-  const generateResults = async ()=>{
+  useEffect(() => {
+    api('ministries').then(setMinistries);
+    api('roles').then(setRoles);
+  }, []);
+
+  const startIndication = () => setStage('indication', selectedMin, selectedRole);
+  const startVoting = () => setStage('voting', selectedMin, selectedRole);
+  const goIdle = () => setStage('none');
+
+  // Gera ranking para o cargo selecionado
+  const generateResults = async () => {
     try {
-      setLoadingResults(true)
-      setErrorResults('')
-      setResults([])
+      setLoadingResults(true);
+      setErrorResults('');
+      setResults([]);
 
-      // Busca votos ou indicações agregadas (ajuste se precisar)
-      const data = await api(`results?role_id=${selectedRole}`).catch(()=>api(`indication?role_id=${selectedRole}`))
-      const list = Array.isArray(data) ? data : data?.results || data?.ranking || []
+      // tenta /results; se não existir, cai para /indication
+      const data = await api(`results?role_id=${selectedRole}`)
+        .catch(() => api(`indication?role_id=${selectedRole}`));
 
-      // normaliza e ordena
-      const normalized = list.map(item => {
-        const id = item.candidate_id ?? item.id ?? item.nominee_id ?? item.member_id ?? String(item)
-        const count = item.votes ?? item.indications ?? item.count ?? 0
-        const name = memberNames.get(String(id)) ?? item.name ?? String(id)
-        return { id, name, count }
-      }).sort((a,b)=>b.count - a.count)
+      const list = Array.isArray(data) ? data : (data?.results || data?.ranking || []);
 
-      setResults(normalized)
-    } catch(e) {
-      console.error(e)
-      setErrorResults('Erro ao gerar resultados.')
+      const normalized = list
+        .map(item => {
+          const id =
+            item.candidate_id ??
+            item.id ??
+            item.nominee_id ??
+            item.member_id ??
+            String(item);
+          const count = Number(item.votes ?? item.indications ?? item.count ?? 0);
+          const name = memberNames.get(String(id)) ?? item.name ?? String(id);
+          return { id: String(id), name, count };
+        })
+        .filter(r => r.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      setResults(normalized);
+    } catch (e) {
+      console.error(e);
+      setErrorResults('Erro ao gerar resultados.');
     } finally {
-      setLoadingResults(false)
+      setLoadingResults(false);
     }
-  }
+  };
+
+  // Salva snapshot no Google Sheets (aba "results_history")
+  const saveResultsSnapshot = async () => {
+    try {
+      if (!selectedRole) {
+        alert('Selecione um cargo.');
+        return;
+      }
+      if (results.length === 0) {
+        alert('Gere os resultados primeiro.');
+        return;
+      }
+
+      const minObj = ministries.find(m => String(m.id) === String(selectedMin));
+      const roleObj = roles.find(r => String(r.id) === String(selectedRole));
+
+      const group = {
+        ministryId: String(selectedMin || ''),
+        ministryName: minObj?.name || 'Sem ministério',
+        roleId: String(selectedRole || ''),
+        roleName: roleObj?.name || 'Cargo',
+        rows: results, // [{ id, name, count }]
+      };
+
+      await api('save_results', {
+        method: 'POST',
+        body: JSON.stringify({
+          requested_by: 'tech',
+          groups: [group],
+        }),
+      });
+
+      alert('Resultados salvos no Google Sheets (aba "results_history").');
+    } catch (e) {
+      console.error(e);
+      alert('Falha ao salvar resultados.');
+    }
+  };
 
   return (
     <div>
       <nav className="tabs">
-        {['control','config','ministries','roles','members'].map(t=> (
-          <button key={t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}</button>
+        {['control','config','ministries','roles','members'].map(t => (
+          <button
+            key={t}
+            className={tab === t ? 'active' : ''}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
         ))}
       </nav>
 
-      {tab==='control' && (
+      {tab === 'control' && (
         <div>
           <h2>Controle da Sessão</h2>
 
           <div className="row">
-            <select value={selectedMin} onChange={e=>setSelectedMin(e.target.value)}>
+            <select
+              value={selectedMin}
+              onChange={e => setSelectedMin(e.target.value)}
+            >
               <option value="">Selecione o ministério…</option>
-              {ministries.map(m=> <option key={m.id} value={m.id}>{m.name}</option>)}
+              {ministries.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
             </select>
-            <select value={selectedRole} onChange={e=>setSelectedRole(e.target.value)}>
+
+            <select
+              value={selectedRole}
+              onChange={e => setSelectedRole(e.target.value)}
+            >
               <option value="">Selecione o cargo…</option>
               {roles
-                .filter(r=>!selectedMin || r.ministry_id===selectedMin)
-                .map(r=> <option key={r.id} value={r.id}>{r.name}</option>)
+                .filter(r => !selectedMin || String(r.ministry_id) === String(selectedMin))
+                .map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))
               }
             </select>
           </div>
 
           <div className="row">
-            <button onClick={startIndication} disabled={!selectedMin||!selectedRole}>Indicação</button>
-            <button onClick={startVoting} disabled={!selectedMin||!selectedRole}>Votação</button>
-            <button onClick={goIdle}>Aguardar</button>
+            <button onClick={startIndication} disabled={!selectedMin || !selectedRole}>
+              Indicação
+            </button>
+            <button onClick={startVoting} disabled={!selectedMin || !selectedRole}>
+              Votação
+            </button>
+            <button onClick={goIdle}>
+              Aguardar
+            </button>
           </div>
 
-          {/* 🔘 Novo botão para gerar resultados */}
+          {/* Ações de resultados do cargo escolhido */}
           <div className="row">
-            <button onClick={generateResults} disabled={!selectedRole || loadingResults}>
+            <button
+              onClick={generateResults}
+              disabled={!selectedRole || loadingResults}
+            >
               {loadingResults ? 'Gerando…' : 'Gerar resultados'}
+            </button>
+
+            <button
+              onClick={saveResultsSnapshot}
+              disabled={!selectedRole || results.length === 0}
+              style={{ marginLeft: 8 }}
+            >
+              Salvar resultados (Sheets)
             </button>
           </div>
 
@@ -122,17 +209,19 @@ export default function TechDashboard(){
           )}
 
           <div className="row">
-            <a href="/api/report" target="_blank" rel="noreferrer">Baixar Relatório (PDF)</a>
+            <a href="/api/report" target="_blank" rel="noreferrer">
+              Baixar Relatório (PDF)
+            </a>
           </div>
 
-          <pre>sessão: {JSON.stringify(session,null,2)}</pre>
+          <pre>sessão: {JSON.stringify(session, null, 2)}</pre>
         </div>
       )}
 
-      {tab==='config' && <ConfigPage/>}
-      {tab==='ministries' && <MinistriesPage/>}
-      {tab==='roles' && <RolesPage/>}
-      {tab==='members' && <MembersPage/>}
+      {tab === 'config' && <ConfigPage/>}
+      {tab === 'ministries' && <MinistriesPage/>}
+      {tab === 'roles' && <RolesPage/>}
+      {tab === 'members' && <MembersPage/>}
     </div>
-  )
+  );
 }
