@@ -1,5 +1,5 @@
 // src/tech/TechDashboard.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useStore from '../store';
 import { api } from '../api';
 import ConfigPage from './ConfigPage';
@@ -7,6 +7,10 @@ import MinistriesPage from './MinistriesPage';
 import RolesPage from './RolesPage';
 import MembersPage from './MembersPage';
 import TopBar from '../components/TopBar';
+
+function norm(v) {
+  return String(v ?? '').trim();
+}
 
 export default function TechDashboard() {
   const { setStage } = useStore();
@@ -27,12 +31,39 @@ export default function TechDashboard() {
 
   // carregar listas básicas
   useEffect(() => {
-    api('ministries').then(setMinistries).catch(() => setMinistries([]));
-    api('roles').then(setRoles).catch(() => setRoles([]));
-    loadStatus();
-    const interval = setInterval(loadStatus, 5000); // atualiza a cada 5s
-    return () => clearInterval(interval);
+    (async () => {
+      try {
+        const mins = await api('ministries');
+        const normMins = (Array.isArray(mins) ? mins : []).map(m => ({
+          id: norm(m.id),
+          name: norm(m.name),
+        })).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+        setMinistries(normMins);
+      } catch {
+        setMinistries([]);
+      }
+      try {
+        const rls = await api('roles');
+        const normRoles = (Array.isArray(rls) ? rls : []).map(r => ({
+          id: norm(r.id),
+          name: norm(r.name),
+          ministry_id: norm(r.ministry_id),
+        })).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+        setRoles(normRoles);
+      } catch {
+        setRoles([]);
+      }
+      await loadStatus();
+      const interval = setInterval(loadStatus, 5000);
+      return () => clearInterval(interval);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ao trocar o ministério, limpamos o cargo selecionado
+  useEffect(() => {
+    setSelectedRole('');
+  }, [selectedMin]);
 
   async function loadStatus() {
     try {
@@ -73,6 +104,13 @@ export default function TechDashboard() {
   const startVoting = () => postSession('voting');
   const goIdle = () => postSession('none');
 
+  // === FILTRO DE CARGOS POR MINISTÉRIO (agora garantido) ===
+  const filteredRoles = useMemo(() => {
+    const minId = norm(selectedMin);
+    if (!minId) return [];
+    return roles.filter(r => norm(r.ministry_id) === minId);
+  }, [roles, selectedMin]);
+
   // estilos
   const baseButton = {
     background: '#22c55e',
@@ -91,7 +129,7 @@ export default function TechDashboard() {
     border: '1px solid #374151',
     borderRadius: 6,
     padding: '8px',
-    minWidth: 200,
+    minWidth: 220,
   };
   const tabButton = (t) => ({
     background: tab === t ? '#22c55e' : '#1f2937',
@@ -106,7 +144,10 @@ export default function TechDashboard() {
 
   const progressPercent =
     status && status.total_members > 0
-      ? Math.round((Number(status.participated_count || 0) / Number(status.total_members || 0)) * 100)
+      ? Math.round(
+          (Number(status.participated_count || 0) /
+            Number(status.total_members || 0)) * 100
+        )
       : 0;
 
   return (
@@ -214,7 +255,7 @@ export default function TechDashboard() {
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                 <select
                   value={selectedMin}
-                  onChange={(e) => setSelectedMin(e.target.value)}
+                  onChange={(e) => setSelectedMin(norm(e.target.value))}
                   style={selectStyle}
                 >
                   <option value="">Selecione o ministério…</option>
@@ -227,17 +268,18 @@ export default function TechDashboard() {
 
                 <select
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
+                  onChange={(e) => setSelectedRole(norm(e.target.value))}
                   style={selectStyle}
+                  disabled={!selectedMin}
                 >
-                  <option value="">Selecione o cargo…</option>
-                  {roles
-                    .filter((r) => !selectedMin || r.ministry_id === selectedMin)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
+                  <option value="">
+                    {selectedMin ? 'Selecione o cargo…' : 'Escolha um ministério primeiro'}
+                  </option>
+                  {filteredRoles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
