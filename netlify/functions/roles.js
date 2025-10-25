@@ -19,8 +19,10 @@ export const handler = async (event) => {
       const [h,...d] = rows || [];
       if (!h) return { statusCode:200, body:'[]' };
       const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
-      let list = d.filter(r=>r && r.length)
-        .map(r=>({ id:r[idx.id], ministry_id:r[idx.ministry_id], name:r[idx.name], created_at:r[idx.created_at], updated_at:r[idx.updated_at] }));
+      let list = d.filter(r=>r && r.length).map(r=>({
+        id:r[idx.id], ministry_id:r[idx.ministry_id], name:r[idx.name],
+        created_at:r[idx.created_at], updated_at:r[idx.updated_at]
+      }));
       if (ministry_id) list = list.filter(x=>x.ministry_id===ministry_id);
       return { statusCode:200, body: JSON.stringify(list) };
     }
