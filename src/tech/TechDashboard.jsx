@@ -91,9 +91,9 @@ export default function TechDashboard() {
       if (!cancelled) await loadStatus();
     })();
 
-    const interval = setInterval(() => {
-      if (!cancelled) loadStatus();
-    }, 5000);
+const interval = setInterval(() => {
+  if (!cancelled) loadStatus();
+}, 10000); // 10s
 
     return () => {
       cancelled = true;
