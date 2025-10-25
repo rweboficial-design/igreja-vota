@@ -1,80 +1,49 @@
 // netlify/functions/presence.js
-// -------------------------------------------------------------
-// Controla presença em tempo real (último ping de cada membro).
-// Aba: presence -> member_id | name | last_seen
-// -------------------------------------------------------------
-import { readRange, writeRange, appendRange, nowISO } from './utils/google.js';
+import { ensureSheet, appendRange, nowISO } from './utils/google.js';
 
-function idxMap(headers = []) {
-  return Object.fromEntries(headers.map((h, i) => [String(h), i]));
-}
+// cache em memória (enquanto a função está "quente"), para não floodar o Sheets
+const lastBeatByMember = new Map(); // member_id -> timestamp(ms)
+const THROTTLE_MS = 45_000; // grava no máximo 1x a cada 45s por membro
 
 export const handler = async (event) => {
   try {
-    const method = event.httpMethod;
-    if (method === 'OPTIONS') {
+    if (event.httpMethod === 'OPTIONS') {
       return {
         statusCode: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
         },
         body: '',
       };
     }
-
-    // ----------------- PING: POST -----------------
-    if (method === 'POST') {
-      const body = JSON.parse(event.body || '{}');
-      const { member_id, name } = body;
-      if (!member_id) return { statusCode: 400, body: 'member_id required' };
-
-      const now = nowISO();
-      const rows = await readRange('presence!A:C');
-      if (!rows || rows.length === 0) {
-        await writeRange('presence!A1:C1', [['member_id', 'name', 'last_seen']]);
-        await appendRange('presence!A:C', [[member_id, name || '', now]]);
-        return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true }) };
-      }
-
-      const [h, ...data] = rows;
-      const idx = idxMap(h);
-      const rowIndex = data.findIndex(r => r[idx.member_id] === member_id);
-
-      if (rowIndex >= 0) {
-        // atualiza linha existente
-        const excelRow = rowIndex + 2;
-        await writeRange(`presence!A${excelRow}:C${excelRow}`, [[member_id, name || '', now]]);
-      } else {
-        // adiciona nova
-        await appendRange('presence!A:C', [[member_id, name || '', now]]);
-      }
-
-      return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: true }) };
+    if (event.httpMethod !== 'POST') {
+      return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // ----------------- STATUS: GET -----------------
-    if (method === 'GET') {
-      const rows = await readRange('presence!A:C');
-      if (!rows || rows.length <= 1) {
-        return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ active_count: 0 }) };
-      }
-      const [, ...data] = rows;
-      const active = [];
-      const now = Date.now();
-      data.forEach(r => {
-        const last = new Date(r[2]).getTime();
-        if (now - last <= 2 * 60 * 1000) active.push(r[0]);
-      });
+    const { member_id, member_name } = JSON.parse(event.body || '{}');
+    if (!member_id) return { statusCode: 400, body: 'member_id é obrigatório' };
+
+    const now = Date.now();
+    const last = lastBeatByMember.get(member_id) || 0;
+    if (now - last < THROTTLE_MS) {
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ active_count: active.length, active_members: active }),
+        body: JSON.stringify({ ok: true, throttled: true }),
       };
     }
 
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    await ensureSheet('presence', ['member_id', 'member_name', 'at']);
+    await appendRange('presence!A:C', [[member_id, member_name || '', nowISO()]]);
+    lastBeatByMember.set(member_id, now);
+
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ ok: true }),
+    };
   } catch (e) {
     console.error('presence error:', e);
     return {
