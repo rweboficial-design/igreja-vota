@@ -11,22 +11,37 @@ async function ensureMembersHeader() {
 export const handler = async (event) => {
   try {
     const method = event.httpMethod;
+if (method === 'GET') {
+  await ensureMembersHeader();
+  const rows = await readRange('members!A:D');
+  const [h, ...d] = rows || [];
+  if (!h) return { statusCode: 200, body: '[]' };
 
-    if (method === 'GET') {
-      await ensureMembersHeader();
-      const rows = await readRange('members!A:D');
-      const [h, ...d] = rows || [];
-      if (!h) return { statusCode: 200, body: '[]' };
-      const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
-      const out = d.filter(r=>r && r.length)
-        .map(r => ({
-          id: r[idx.id],
-          name: r[idx.name],
-          photo_url: r[idx.photo_url],
-          active: String(r[idx.active]) === '1'
-        }));
-      return { statusCode: 200, body: JSON.stringify(out) };
-    }
+  const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
+  // mapeia linhas → objetos
+  const list = d
+    .filter(r => r && r.length)
+    .map(r => ({
+      id: r[idx.id],
+      name: r[idx.name],
+      photo_url: r[idx.photo_url],
+      active: String(r[idx.active]) === '1'
+    }))
+    // só membros ativos
+    .filter(m => m && m.name && m.active);
+
+  // DEDUP: prioriza id; se faltar id, usa nome normalizado
+  const map = new Map();
+  for (const m of list) {
+    const key = (m.id && m.id.trim()) || m.name.trim().toLowerCase();
+    if (!map.has(key)) map.set(key, m);
+  }
+  const deduped = Array.from(map.values())
+    .sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+  return { statusCode: 200, body: JSON.stringify(deduped) };
+}
+
 
     if (method === 'POST') {
       // cadastro manual: { name, photo_url?, active? }
