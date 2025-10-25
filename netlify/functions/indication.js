@@ -1,11 +1,9 @@
 // netlify/functions/indications.js
-// ==========================================================
-// Função responsável por registrar indicações no Google Sheets
-// ==========================================================
+// Registra indicações na aba "indications" do Google Sheets.
+// Cabeçalho: session_id | role_id | member_id | nominee_id | at
 
 import { readRange, writeRange, appendRange, nowISO } from './utils/google.js';
 
-// garante que a aba indications tenha cabeçalho
 async function ensureHeader() {
   const rows = await readRange('indications!A:E');
   if (!rows || rows.length === 0) {
@@ -15,36 +13,43 @@ async function ensureHeader() {
   }
 }
 
-// tenta identificar sessão ativa para o cargo
 async function getSessionIdFallback(role_id) {
   try {
-    const rows = await readRange('sessions!A:F');
+    const rows = await readRange('sessions!A:F'); // id,status,ministry_id,role_id,stage,updated_at
     const [h, ...d] = rows || [];
     if (h && d && d.length) {
-      const idx = Object.fromEntries(h.map((x, i) => [x, i]));
-      const active = d.find(
-        (r) =>
-          r &&
-          r[idx.role_id] === role_id &&
-          (r[idx.status] === 'open' || r[idx.stage] === 'indication')
+      const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
+      const active = d.find(r =>
+        r &&
+        r[idx.role_id] === role_id &&
+        (r[idx.status] === 'open' || r[idx.stage] === 'indication')
       );
       if (active) return active[idx.id];
       const last = d[d.length - 1];
       if (last) return last[idx.id];
     }
-  } catch (e) {
-    console.warn('fallback session_id error:', e.message);
-  }
+  } catch {}
   return 'sess_' + (role_id || 'default');
 }
 
-// função principal da API
+// util: tentativa com backoff para gravar
+async function appendWithRetry(range, rows, tries = 3) {
+  let lastErr;
+  for (let i=0; i<tries; i++) {
+    try {
+      await appendRange(range, rows);
+      return true;
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 300 * (i+1)));
+    }
+  }
+  throw lastErr;
+}
+
 export const handler = async (event) => {
   try {
-    const method = event.httpMethod;
-
-    // permite CORS
-    if (method === 'OPTIONS') {
+    if (event.httpMethod === 'OPTIONS') {
       return {
         statusCode: 200,
         headers: {
@@ -56,58 +61,42 @@ export const handler = async (event) => {
       };
     }
 
-    // ========================================================
-    // POST  -> grava novas indicações
-    // ========================================================
-    if (method === 'POST') {
+    if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
       const { role_id, nominees, member_id } = body;
-
-      if (!role_id)
-        return { statusCode: 400, body: 'Campo role_id é obrigatório' };
-      if (!Array.isArray(nominees) || nominees.length === 0)
-        return {
-          statusCode: 400,
-          body: 'nominees deve ser uma lista com ao menos um item',
-        };
+      if (!role_id) return { statusCode: 400, body: 'role_id é obrigatório' };
+      if (!Array.isArray(nominees) || nominees.length === 0) {
+        return { statusCode: 400, body: 'nominees deve ter pelo menos 1 item' };
+      }
 
       await ensureHeader();
-
       const session_id = await getSessionIdFallback(role_id);
       const now = nowISO();
-
-      const linhas = nominees.slice(0, 3).map((n) => [
-        session_id,
-        role_id,
-        member_id || 'anonymous',
-        n,
-        now,
+      const linhas = nominees.slice(0,3).map(n => [
+        session_id, role_id, member_id || 'anonymous', n, now
       ]);
 
-      await appendRange('indications!A:E', linhas);
+      await appendWithRetry('indications!A:E', linhas, 3);
 
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ ok: true, count: linhas.length }),
+        body: JSON.stringify({ ok: true, saved: linhas.length }),
       };
     }
 
-    // ========================================================
-    // GET  -> lista indicações já gravadas
-    // ========================================================
-    if (method === 'GET') {
+    if (event.httpMethod === 'GET') {
       await ensureHeader();
       const rows = await readRange('indications!A:E');
       const [h, ...d] = rows || [];
       if (!h) return { statusCode: 200, body: '[]' };
-      const idx = Object.fromEntries(h.map((x, i) => [x, i]));
-      const out = d.map((r) => ({
+      const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
+      const out = d.map(r => ({
         session_id: r[idx.session_id],
-        role_id: r[idx.role_id],
-        member_id: r[idx.member_id],
+        role_id:    r[idx.role_id],
+        member_id:  r[idx.member_id],
         nominee_id: r[idx.nominee_id],
-        at: r[idx.at],
+        at:         r[idx.at],
       }));
       return {
         statusCode: 200,
@@ -116,10 +105,9 @@ export const handler = async (event) => {
       };
     }
 
-    // método não permitido
     return { statusCode: 405, body: 'Method Not Allowed' };
   } catch (e) {
-    console.error('Erro API indications:', e);
+    console.error('Erro /indications:', e);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
