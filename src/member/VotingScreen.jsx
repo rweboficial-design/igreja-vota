@@ -1,38 +1,33 @@
-import React, { useMemo, useState } from "react";
-import MemberCard from "../components/MemberCard";
-import { dedupeMembers } from "../utils/members";
+import React, { useEffect, useState } from 'react'
+import useStore from '../store'
+import { api } from '../api'
 
-export default function Votar({ candidatos = [], onConfirm }) {
-  const list = useMemo(() => dedupeMembers(candidatos), [candidatos]);
-  const [chosen, setChosen] = useState(null);
+export default function Voting(){
+  const { memberId, session } = useStore()
+  const [ranking, setRanking] = useState([])
+  const [choice, setChoice] = useState('')
+
+  useEffect(()=>{ api(`indication?role_id=${session.role_id}`).then(setRanking) },[session.role_id])
+
+  const submit = async ()=>{
+    if(!choice) return;
+    await api('voting', { method:'POST', body: JSON.stringify({ role_id: session.role_id, member_id: memberId||'anon', candidate_id: choice }) })
+    alert('Voto registrado!')
+  }
 
   return (
-    <div className="page">
-      <h1>Vote em 1 membro</h1>
-
-      <div className="members-grid">
-        {list.map((m) => {
-          const mKey = m.id ?? m._id ?? m.codigo ?? m.name;
-          return (
-            <MemberCard
-              key={mKey}
-              member={m}
-              selected={chosen === mKey}
-              onClick={() => setChosen(mKey)}
-            />
-          );
-        })}
-      </div>
-
-      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-        <button
-          disabled={!chosen}
-          onClick={() => onConfirm?.(chosen)}
-          className="primary"
-        >
-          Confirmar voto
-        </button>
-      </div>
+    <div>
+      <h2>Vote em 1 candidato</h2>
+      <ul className="list">
+        {ranking.slice(0,10).map(r=> (
+          <li key={r.id}>
+            <label>
+              <input type="radio" name="vote" value={r.id} onChange={()=>setChoice(r.id)} /> {r.id} <small>({r.indications} indicações)</small>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <div className="actions"><button disabled={!choice} onClick={submit}>Votar</button></div>
     </div>
-  );
+  )
 }
