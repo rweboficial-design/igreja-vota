@@ -103,3 +103,36 @@ export default function TechDashboard(){
               <table style={{ width: '100%', maxWidth: 520, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
+                    <th style={{ textAlign: 'left', padding: '6px 8px' }}>Posição</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px' }}>Membro</th>
+                    <th style={{ textAlign: 'right', padding: '6px 8px' }}>Votos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((r, idx) => (
+                    <tr key={r.id} style={{ borderTop: '1px solid rgba(255,255,255,.1)' }}>
+                      <td style={{ padding: '6px 8px' }}>{idx + 1}º</td>
+                      <td style={{ padding: '6px 8px' }}>{r.name}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{r.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="row">
+            <a href="/api/report" target="_blank" rel="noreferrer">Baixar Relatório (PDF)</a>
+          </div>
+
+          <pre>sessão: {JSON.stringify(session,null,2)}</pre>
+        </div>
+      )}
+
+      {tab==='config' && <ConfigPage/>}
+      {tab==='ministries' && <MinistriesPage/>}
+      {tab==='roles' && <RolesPage/>}
+      {tab==='members' && <MembersPage/>}
+    </div>
+  )
+}
