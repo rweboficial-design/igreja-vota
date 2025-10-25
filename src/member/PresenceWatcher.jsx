@@ -1,30 +1,38 @@
-import { useEffect } from "react";
-import useStore from "../store";
+// src/member/PresenceWatcher.jsx
+import { useEffect } from 'react';
+import useStore from '../store';
 
 export default function PresenceWatcher() {
-  const { member } = useStore();
+  const { member } = useStore(); // precisa ter { id, name } ou ao menos { name }
 
   useEffect(() => {
-    if (!member?.id) return;
+    if (!member?.id && !member?.name) return;
+
     let stop = false;
 
     async function ping() {
       try {
-        await fetch("/api/presence", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ member_id: member.id, name: member.name }),
+        await fetch('/api/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Enviamos id e name; se id estiver vazio, o backend resolve pelo name
+          body: JSON.stringify({ member_id: member.id || '', name: member.name || '' }),
         });
-      } catch {}
+      } catch {
+        // silencia falha intermitente
+      }
     }
 
+    // primeiro envio imediato
     ping();
-    const it = setInterval(ping, 30000); // a cada 30 s
+    // depois a cada 45s (alinhado ao throttle do backend)
+    const it = setInterval(ping, 45_000);
+
     return () => {
       stop = true;
       clearInterval(it);
     };
-  }, [member]);
+  }, [member?.id, member?.name]);
 
   return null;
 }
