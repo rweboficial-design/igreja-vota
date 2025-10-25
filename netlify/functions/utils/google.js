@@ -2,18 +2,35 @@ import { google } from 'googleapis';
 
 // Aceita GOOGLE_PRIVATE_KEY (multilinha ou com \n) ou GOOGLE_PRIVATE_KEY_BASE64
 function normalizePrivateKey() {
-  let key = process.env.GOOGLE_PRIVATE_KEY || '';
+  let key = '';
 
-  if ((!key || key.trim() === '') && process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+  // 1) Prioriza Base64 (mais robusto)
+  const b64 = process.env.GOOGLE_PRIVATE_KEY_BASE64 || '';
+  if (b64) {
     try {
-      key = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+      key = Buffer.from(b64.trim(), 'base64').toString('utf8');
     } catch {}
   }
 
+  // 2) Se não houver Base64, cai para a variável normal
+  if (!key && process.env.GOOGLE_PRIVATE_KEY) {
+    key = process.env.GOOGLE_PRIVATE_KEY;
+  }
+
+  // 3) Remove aspas ou crases acidentais coladas ao redor
+  if ((key.startsWith('"') && key.endsWith('"')) ||
+      (key.startsWith("'") && key.endsWith("'")) ||
+      (key.startsWith('`') && key.endsWith('`'))) {
+    key = key.slice(1, -1);
+  }
+
+  // 4) Normaliza \n escapado e quebras Windows
   if (key.includes('\\n')) key = key.replace(/\\n/g, '\n');
   key = key.replace(/\r\n/g, '\n').trim();
+
   return key;
 }
+
 
 const auth = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
