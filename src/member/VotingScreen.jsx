@@ -7,6 +7,7 @@ export default function VotingScreen() {
   const [selected, setSelected] = useState(null);
   const [sending, setSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const did = useRef(false);
 
   async function loadCandidates() {
@@ -32,21 +33,15 @@ export default function VotingScreen() {
     loadCandidates();
   }, []);
 
-  const handleSelect = (c) => setSelected(c);
-
   async function handleConfirmVote() {
+    setErrorMsg("");
     if (!selected) {
       alert("Selecione um candidato antes de votar.");
       return;
     }
-
     setSending(true);
-    setShowSuccess(true);
-
-    setTimeout(() => setStage("none"), 1200);
-
     try {
-      await fetch("/api/votes", {
+      const res = await fetch("/api/votes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -55,8 +50,17 @@ export default function VotingScreen() {
           member_id: member?.id || "anonymous",
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Não foi possível registrar o voto.");
+      }
+      setShowSuccess(true);
+      setTimeout(() => setStage("none"), 1000);
     } catch (e) {
-      console.error("Falha ao registrar voto:", e);
+      console.error("Erro ao enviar voto:", e);
+      setErrorMsg(e.message || "Falha ao enviar. Tente novamente.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -86,12 +90,16 @@ export default function VotingScreen() {
               boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
             }}
           >
-            <h4 style={{ marginBottom: 8, color: "#0f172a" }}>
-              Voto registrado!
-            </h4>
+            <h4 style={{ marginBottom: 8, color: "#0f172a" }}>Voto registrado!</h4>
             <p style={{ color: "#334155" }}>Obrigado por participar.</p>
           </div>
         </div>
+      )}
+
+      {errorMsg && (
+        <p style={{ color: "#ef4444", fontWeight: 600, marginTop: 8 }}>
+          {errorMsg}
+        </p>
       )}
 
       {candidates.length === 0 ? (
@@ -107,7 +115,6 @@ export default function VotingScreen() {
         >
           {candidates.map((c) => {
             const isSel = selected?.id === c.id;
-
             const baseStyle = {
               cursor: "pointer",
               textAlign: "center",
@@ -118,7 +125,6 @@ export default function VotingScreen() {
                 "transform .08s ease, box-shadow .12s ease, border-color .12s ease",
               background: "#fff",
             };
-
             const selStyle = isSel
               ? {
                   borderColor: "#22c55e",
@@ -127,11 +133,10 @@ export default function VotingScreen() {
                   background: "#f0fdf4",
                 }
               : {};
-
             return (
               <button
                 key={c.id}
-                onClick={() => handleSelect(c)}
+                onClick={() => setSelected(c)}
                 style={{ ...baseStyle, ...selStyle }}
               >
                 <div
@@ -144,9 +149,7 @@ export default function VotingScreen() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: isSel
-                      ? "2px solid #22c55e"
-                      : "2px solid transparent",
+                    border: isSel ? "2px solid #22c55e" : "2px solid transparent",
                     overflow: "hidden",
                   }}
                 >
@@ -154,41 +157,20 @@ export default function VotingScreen() {
                     <img
                       src={c.photo_url}
                       alt={c.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <span
-                      style={{
-                        fontSize: 28,
-                        color: "#2563eb",
-                      }}
-                    >
-                      👤
-                    </span>
+                    <span style={{ fontSize: 28, color: "#2563eb" }}>👤</span>
                   )}
                 </div>
                 <div
-                  style={{
-                    marginTop: 8,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    color: "#0f172a",
-                  }}
+                  style={{ marginTop: 8, fontWeight: 600, fontSize: 14, color: "#0f172a" }}
                 >
                   {c.name}
                 </div>
                 {isSel && (
                   <div
-                    style={{
-                      fontSize: 12,
-                      color: "#16a34a",
-                      marginTop: 4,
-                      fontWeight: 500,
-                    }}
+                    style={{ fontSize: 12, color: "#16a34a", marginTop: 4, fontWeight: 500 }}
                   >
                     Selecionado
                   </div>
