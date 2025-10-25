@@ -17,7 +17,7 @@ export async function driveClient() {
   return google.drive({ version: 'v3', auth });
 }
 
-export const SPREADSHEET_ID = process.env.SHEETS_SPREADSHEET_ID;
+export const SPREADSHEET_ID = '1nLuR_dlQg5GtTsbmwz7FH9LO5rQDk2s9V9HBUR2ZTQQ';
 export const MEMBERS_FOLDER_ID = process.env.DRIVE_MEMBERS_FOLDER_ID;
 
 export async function readRange(range) {
