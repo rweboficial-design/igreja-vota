@@ -1,11 +1,35 @@
 import { google } from 'googleapis';
 
+// Aceita GOOGLE_PRIVATE_KEY (multilinha ou com \n) ou GOOGLE_PRIVATE_KEY_BASE64
+function normalizePrivateKey() {
+  let key = process.env.GOOGLE_PRIVATE_KEY || '';
+
+  if ((!key || key.trim() === '') && process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+    try {
+      key = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+    } catch {}
+  }
+
+  if (key.includes('\\n')) key = key.replace(/\\n/g, '\n');
+  key = key.replace(/\r\n/g, '\n').trim();
+  return key;
+}
+
 const auth = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   undefined,
-  (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-  ['https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive.readonly']
+  normalizePrivateKey(),
+  [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.readonly'
+  ]
 );
+
+// Planilha fixa (pode sobrescrever por env se quiser)
+export const SPREADSHEET_ID =
+  process.env.SHEETS_SPREADSHEET_ID || '1nLuR_dlQg5GtTsbmwz7FH9LO5rQDk2s9V9HBUR2ZTQQ';
+
+export const MEMBERS_FOLDER_ID = process.env.DRIVE_MEMBERS_FOLDER_ID;
 
 export async function sheetsClient() {
   await auth.authorize();
@@ -16,9 +40,6 @@ export async function driveClient() {
   await auth.authorize();
   return google.drive({ version: 'v3', auth });
 }
-
-export const SPREADSHEET_ID = '1nLuR_dlQg5GtTsbmwz7FH9LO5rQDk2s9V9HBUR2ZTQQ';
-export const MEMBERS_FOLDER_ID = process.env.DRIVE_MEMBERS_FOLDER_ID;
 
 export async function readRange(range) {
   const sheets = await sheetsClient();
