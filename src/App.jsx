@@ -9,10 +9,13 @@ import AwaitScreen from "./member/AwaitScreen";
 export default function App() {
   const { stage, isTech } = useStore();
 
-  if (!stage) return <HomeScreen />;
+  // fluxo: começa sempre em 'login'
+  if (stage === "login") return <HomeScreen />;
 
-  if (isTech) return <TechDashboard />;
+  // técnico logado
+  if (isTech && stage === "tech") return <TechDashboard />;
 
+  // membro
   switch (stage) {
     case "indication":
       return <IndicationScreen />;
