@@ -1,17 +1,8 @@
 // netlify/functions/indications.js
-// Registra indicações na aba "indications" do Google Sheets.
-// Cabeçalho: session_id | role_id | member_id | nominee_id | at
+// Registra indicações na aba "indications" (auto-criação de aba/cabeçalho).
+// Colunas: session_id | role_id | member_id | nominee_id | at
 
-import { readRange, writeRange, appendRange, nowISO } from './utils/google.js';
-
-async function ensureHeader() {
-  const rows = await readRange('indications!A:E');
-  if (!rows || rows.length === 0) {
-    await writeRange('indications!A1', [
-      ['session_id', 'role_id', 'member_id', 'nominee_id', 'at'],
-    ]);
-  }
-}
+import { readRange, appendRange, nowISO } from './utils/google.js';
 
 async function getSessionIdFallback(role_id) {
   try {
@@ -32,17 +23,11 @@ async function getSessionIdFallback(role_id) {
   return 'sess_' + (role_id || 'default');
 }
 
-// util: tentativa com backoff para gravar
 async function appendWithRetry(range, rows, tries = 3) {
   let lastErr;
   for (let i=0; i<tries; i++) {
-    try {
-      await appendRange(range, rows);
-      return true;
-    } catch (e) {
-      lastErr = e;
-      await new Promise(r => setTimeout(r, 300 * (i+1)));
-    }
+    try { await appendRange(range, rows); return true; }
+    catch (e) { lastErr = e; await new Promise(r=>setTimeout(r, 300*(i+1))); }
   }
   throw lastErr;
 }
@@ -69,7 +54,6 @@ export const handler = async (event) => {
         return { statusCode: 400, body: 'nominees deve ter pelo menos 1 item' };
       }
 
-      await ensureHeader();
       const session_id = await getSessionIdFallback(role_id);
       const now = nowISO();
       const linhas = nominees.slice(0,3).map(n => [
@@ -86,7 +70,6 @@ export const handler = async (event) => {
     }
 
     if (event.httpMethod === 'GET') {
-      await ensureHeader();
       const rows = await readRange('indications!A:E');
       const [h, ...d] = rows || [];
       if (!h) return { statusCode: 200, body: '[]' };
