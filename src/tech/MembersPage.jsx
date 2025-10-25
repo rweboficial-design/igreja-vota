@@ -11,29 +11,40 @@ export default function MembersPage(){
     try{
       const r = await fetch('/api/members');
       const data = await r.json();
-      setItems(Array.isArray(data)?data:[]);
+      if (Array.isArray(data)) setItems(data);
+      else setItems([]);
     }catch(e){ setErr('Falha ao carregar membros'); }
   }
   useEffect(()=>{ load(); },[]);
 
   async function add(){
     if(!name.trim()) return alert('Digite o nome do membro');
-    setLoading(true); setErr('');
+    setLoading(true);
+    setErr('');
     try{
       const r = await fetch('/api/members', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name: name.trim(), active:true })
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name: name.trim(), photo_url:'', active:true })
       });
       const data = await r.json();
-      if (data?.ok) { setName(''); await load(); }
-      else setErr('Não foi possível adicionar.');
+      if (data && data.ok) {
+        setName('');
+        await load();
+      } else {
+        setErr('Não foi possível adicionar.');
+      }
     }catch(e){ setErr('Erro ao adicionar.'); }
     finally{ setLoading(false); }
   }
 
   async function del(id){
     if(!confirm('Remover este membro?')) return;
-    await fetch('/api/members',{ method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+    await fetch('/api/members', {
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id })
+    });
     await load();
   }
 
@@ -42,8 +53,15 @@ export default function MembersPage(){
       <h3>Membros</h3>
 
       <div className="row" style={{gap:8, marginBottom:12}}>
-        <input placeholder="Nome do membro" value={name} onChange={e=>setName(e.target.value)} style={{flex:1}}/>
-        <button onClick={add} disabled={loading}>{loading?'Salvando…':'Adicionar Membro'}</button>
+        <input
+          placeholder="Nome do membro"
+          value={name}
+          onChange={e=>setName(e.target.value)}
+          style={{flex:1}}
+        />
+        <button onClick={add} disabled={loading}>
+          {loading ? 'Salvando…' : 'Adicionar'}
+        </button>
       </div>
 
       {err && <p style={{color:'#ff9b9b'}}>{err}</p>}
@@ -51,10 +69,12 @@ export default function MembersPage(){
         <p>Nenhum membro cadastrado.</p>
       ) : (
         <ul className="grid">
-          {items.map(m=>(
-            <li key={m.id} className="card" style={{display:'flex',gap:12,alignItems:'center',justifyContent:'space-between'}}>
-              <div style={{fontWeight:600}}>{m.name}</div>
-              <button onClick={()=>del(m.id)}>Excluir</button>
+          {items.map(m => (
+            <li key={m.id} className="card" style={{textAlign:'left'}}>
+              <div style={{display:'flex', gap:12, alignItems:'center'}}>
+                <div style={{flex:1, fontWeight:600}}>{m.name}</div>
+                <button onClick={()=>del(m.id)}>Excluir</button>
+              </div>
             </li>
           ))}
         </ul>

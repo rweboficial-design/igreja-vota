@@ -1,93 +1,32 @@
-// netlify/functions/session.js
-// Controla a sessão global (qual fase está ativa) na aba "sessions".
-// Colunas: id | status | ministry_id | role_id | stage | updated_at
-
-import { readRange, appendRange, nowISO, writeRange } from './utils/google.js';
-
-function newSessionId() {
-  return 'sess_' + Date.now();
-}
-
-// Pega a última linha (consideramos a mais recente como "ativa")
-async function getLastSession() {
-  const rows = await readRange('sessions!A:F'); // com auto-criação via utils
-  const [h, ...d] = rows || [];
-  if (!h || d.length === 0) return null;
-  const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
-  const last = d[d.length - 1];
-  return {
-    id: last[idx.id],
-    status: last[idx.status],
-    ministry_id: last[idx.ministry_id],
-    role_id: last[idx.role_id],
-    stage: last[idx.stage],
-    updated_at: last[idx.updated_at],
-  };
-}
+import { readRange, writeRange, nowISO } from './utils/google.js';
 
 export const handler = async (event) => {
   try {
-    const method = event.httpMethod;
-
-    // CORS
-    if (method === 'OPTIONS') {
-      return {
-        statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-        body: '',
-      };
+    if (event.httpMethod === 'GET') {
+      const rows = await readRange('sessions!A:F');
+      const [h,...d]=rows || []; if(!h) return {statusCode:200, body: JSON.stringify({ id:'active', status:'idle', stage:'none' })};
+      const idx = Object.fromEntries(h.map((x,i)=>[x,i]));
+      const s = d.find(r=>r[idx.id]==='active');
+      if(!s) return { statusCode:200, body: JSON.stringify({ id:'active', status:'idle', stage:'none' }) };
+      const out = { id:s[idx.id], status:s[idx.status], ministry_id:s[idx.ministry_id], role_id:s[idx.role_id], stage:s[idx.stage], updated_at:s[idx.updated_at] };
+      return { statusCode:200, body: JSON.stringify(out) };
     }
-
-    if (method === 'GET') {
-      const last = await getLastSession();
-      // Resposta padrão quando ainda não há sessão
-      const payload = last || {
-        id: null,
-        status: 'closed',
-        ministry_id: '',
-        role_id: '',
-        stage: 'none',
-        updated_at: null,
-      };
-
-      // Campos auxiliares para o painel
-      payload.indication_active = payload.stage === 'indication';
-      payload.voting_active = payload.stage === 'voting';
-
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify(payload),
-      };
-    }
-
-    if (method === 'POST') {
-      const body = JSON.parse(event.body || '{}');
-      const { ministry_id = '', role_id = '', stage = 'none' } = body;
-
-      if (!['none','indication','voting'].includes(stage)) {
-        return { statusCode: 400, body: 'stage inválido' };
+    if (event.httpMethod === 'POST') {
+      const { status, ministry_id=null, role_id=null, stage='none' } = JSON.parse(event.body||'{}');
+      const rows = await readRange('sessions!A:F');
+      if(!rows || rows.length===0){
+        await writeRange('sessions!A1', [[ 'id','status','ministry_id','role_id','stage','updated_at' ], [ 'active', status, ministry_id, role_id, stage, nowISO() ]]);
+        return { statusCode:200, body: JSON.stringify({ ok:true }) };
       }
-
-      const id = newSessionId();
-      const now = nowISO();
-      const row = [[ id, 'open', ministry_id, role_id, stage, now ]];
-      await appendRange('sessions!A:F', row);
-
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ ok: true, id, stage }),
-      };
+      const [h,...d]=rows; const idx=Object.fromEntries(h.map((x,i)=>[x,i]));
+      let found = d.find(r=>r[idx.id]==='active');
+      if(!found){ d.push(['active', status, ministry_id, role_id, stage, nowISO()]); }
+      else { found[idx.status]=status; found[idx.ministry_id]=ministry_id; found[idx.role_id]=role_id; found[idx.stage]=stage; found[idx.updated_at]=nowISO(); }
+      await writeRange('sessions!A1', [h,...d]);
+      return { statusCode:200, body: JSON.stringify({ ok:true }) };
     }
-
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  } catch (e) {
-    console.error('Erro /session:', e);
-    return { statusCode: 500, headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: e.message }) };
+    return { statusCode:405, body:'Method Not Allowed' };
+  } catch(e){
+    return { statusCode:500, body: JSON.stringify({ error:e.message }) };
   }
-};
+}

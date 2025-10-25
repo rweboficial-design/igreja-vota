@@ -9,7 +9,7 @@ export default function MinistriesPage(){
   async function load(){
     setErr('');
     try{
-      const r = await fetch('/api/ministries');
+      const r = await fetch('/api/ministries'); // via redirect do netlify.toml
       const data = await r.json();
       setItems(Array.isArray(data)?data:[]);
     }catch(e){ setErr('Falha ao carregar ministérios'); }
@@ -21,11 +21,12 @@ export default function MinistriesPage(){
     setLoading(true); setErr('');
     try{
       const r = await fetch('/api/ministries', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ name: name.trim() })
       });
       const data = await r.json();
-      if (data?.ok) { setName(''); await load(); }
+      if (data && data.ok) { setName(''); await load(); }
       else setErr('Não foi possível adicionar.');
     }catch(e){ setErr('Erro ao adicionar.'); }
     finally{ setLoading(false); }
