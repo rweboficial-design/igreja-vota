@@ -1,13 +1,14 @@
 // netlify/functions/status.js
 // =============================================================
 // Retorna o andamento da sessão ativa para o painel técnico.
-// Requer abas (criadas automaticamente pelo utils/google.js):
-//  - sessions: id | status | ministry_id | role_id | stage | updated_at
-//  - ministries: id | name
-//  - roles: id | name | ministry_id
-//  - members: id | name | photo_url | active
+// Abas usadas (criadas automaticamente por utils/google.js):
+//  - sessions:    id | status | ministry_id | role_id | stage | updated_at
+//  - ministries:  id | name
+//  - roles:       id | name | ministry_id
+//  - members:     id | name | photo_url | active
 //  - indications: session_id | role_id | member_id | nominee_id | at
 //  - votes:       session_id | role_id | member_id | nominee_id | at
+//  - presence:    member_id | name | last_seen
 // =============================================================
 
 import { readRange } from './utils/google.js';
@@ -41,10 +42,11 @@ export const handler = async (event) => {
     }
 
     // ------------------------------------------------------------------
-    // 1) Sessão ativa (última linha de sessions)
+    // 1) Sessão ativa (última linha da aba sessions)
     // ------------------------------------------------------------------
     const sessions = await readRange('sessions!A:F');
     let session = { id: null, status: 'closed', ministry_id: '', role_id: '', stage: 'none', updated_at: null };
+
     if (sessions && sessions.length > 1) {
       const [h, ...rows] = sessions;
       const idx = idxMap(h);
@@ -85,7 +87,7 @@ export const handler = async (event) => {
     }
 
     // ------------------------------------------------------------------
-    // 3) Total de membros "ativos" (usamos como proxy de logados)
+    // 3) Membros: total ativos (coluna 'active' true/1) = universo
     // ------------------------------------------------------------------
     const membersRows = await readRange('members!A:D');
     let total_members = 0;
@@ -95,11 +97,29 @@ export const handler = async (event) => {
       total_members = mr.filter(r => truthy(r[mi.active])).length;
     }
 
-    // Por ora, consideramos logados = ativos (podemos trocar por presença real depois)
-    const logged_count = total_members;
+    // ------------------------------------------------------------------
+    // 4) Presença real (últimos 2 minutos)
+    // ------------------------------------------------------------------
+    let logged_count = total_members;
+    try {
+      const presRows = await readRange('presence!A:C');
+      if (presRows && presRows.length > 1) {
+        const [, ...data] = presRows;
+        const now = Date.now();
+        const cutoff = 2 * 60 * 1000; // 2 minutos
+        const active = data.filter(r => {
+          const last = new Date(r[2]).getTime();
+          return now - last <= cutoff;
+        });
+        logged_count = active.length;
+      }
+    } catch (e) {
+      // se a aba presence não existir, utils cria na próxima escrita;
+      // aqui seguimos com logged_count = total_members
+    }
 
     // ------------------------------------------------------------------
-    // 4) Participação (quantos já fizeram ação na fase atual)
+    // 5) Participação na fase atual
     // ------------------------------------------------------------------
     let voted_count = 0;
     let indicated_count = 0;
@@ -136,22 +156,30 @@ export const handler = async (event) => {
       }
     }
 
-    // Se não há nenhuma fase ativa, mostramos 0
-    const participated_count = voting_active ? voted_count : indication_active ? indicated_count : 0;
+    const participated_count = voting_active ? voted_count : (indication_active ? indicated_count : 0);
 
+    // ------------------------------------------------------------------
+    // 6) Payload final
+    // ------------------------------------------------------------------
     const payload = {
+      // Sessão
       ministry_id: session.ministry_id || '',
       role_id: session.role_id || '',
       ministry_name,
       role_name,
-      stage: session.stage,
+      stage: session.stage,                  // "none" | "indication" | "voting"
       indication_active,
       voting_active,
-      total_members,
-      logged_count,          // por enquanto igual a total_members
-      voted_count,           // válido quando voting_active
-      indicated_count,       // válido quando indication_active
-      participated_count,    // número exibido como "já participaram"
+      updated_at: session.updated_at,
+
+      // Métricas
+      total_members,                         // membros ativos cadastrados
+      logged_count,                          // presença real (últimos 2 min)
+      voted_count,                           // qtd membros que já votaram (fase votação)
+      indicated_count,                       // qtd membros que já indicaram (fase indicação)
+      participated_count,                    // número exibido como "já participaram"
+
+      // Marcação de tempo
       timestamp: new Date().toISOString(),
     };
 
