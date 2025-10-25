@@ -1,30 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import useStore from "../store";
 
-function normalizeItem(item, idx = 0) {
-  // aceita tanto array quanto objeto
-  if (Array.isArray(item)) {
-    const id = item[0] ?? `tmp_${idx}`;
-    const name = item[1] ?? String(item[0] ?? idx);
-    const photo_url = item[2] ?? "";
-    const active = String(item[3]) === "1" || item[3] === true;
-    return { id, name, photo_url, active };
-  }
-  const id =
-    item?.id ??
-    item?.ID ??
-    item?.key ??
-    (item?.name ? item.name.toLowerCase().replace(/\s+/g, "_") : `tmp_${idx}`);
-  const name = item?.name ?? String(id);
-  const photo_url = item?.photo_url ?? item?.photo ?? "";
-  const active =
-    item?.active === true ||
-    item?.active === 1 ||
-    item?.active === "1" ||
-    item?.Active === true;
-  return { id, name, photo_url, active };
-}
-
 export default function IndicationScreen() {
   const { role_id, setStage, member } = useStore();
   const [members, setMembers] = useState([]);
@@ -33,32 +9,22 @@ export default function IndicationScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const did = useRef(false);
 
+  const MAX_SELECTION = 3;
+
   async function loadMembers() {
     try {
       const res = await fetch("/api/members");
       const data = await res.json();
-
-      const normalized = Array.isArray(data)
-        ? data.map((it, i) => normalizeItem(it, i))
-        : [];
-
-      const actives = normalized.filter((m) => m && m.name && (m.active ?? true));
-
-      // remove duplicados
-      const map = new Map();
-      for (const m of actives) {
-        const key = (m.id && String(m.id).trim()) || m.name.toLowerCase();
-        if (!map.has(key)) map.set(key, m);
-      }
-
-      const list = Array.from(map.values()).sort((a, b) =>
-        a.name.localeCompare(b.name, "pt-BR")
-      );
-
-      setMembers(list);
+      if (Array.isArray(data)) {
+        const list = data.map((m, i) => ({
+          id: m.id || `m_${i}`,
+          name: m.name || `Membro ${i + 1}`,
+          photo_url: m.photo_url || "",
+        }));
+        setMembers(list);
+      } else setMembers([]);
     } catch (e) {
-      console.error("Falha ao carregar membros", e);
-      setMembers([]);
+      console.error("Falha ao carregar membros:", e);
     }
   }
 
@@ -68,63 +34,55 @@ export default function IndicationScreen() {
     loadMembers();
   }, []);
 
-  const toggleSelect = (m) => {
-    const key = m.id || m.name.toLowerCase();
-    const isSelected = selected.some(
-      (s) => (s.id || s.name.toLowerCase()) === key
-    );
-
-    if (isSelected) {
-      setSelected(selected.filter((s) => (s.id || s.name.toLowerCase()) !== key));
+  const handleSelect = (m) => {
+    const exists = selected.find((x) => x.id === m.id);
+    if (exists) {
+      setSelected(selected.filter((x) => x.id !== m.id));
     } else {
-      if (selected.length >= 3) {
-        alert("Você pode indicar no máximo 3 pessoas.");
-        return;
-      }
-      setSelected([...selected, m]);
+      if (selected.length < MAX_SELECTION)
+        setSelected([...selected, m]);
+      else
+        alert(`Você só pode indicar até ${MAX_SELECTION} membros.`);
     }
   };
 
-  async function handleConfirmIndication() {
+  async function handleSend() {
     if (selected.length === 0) {
-      alert("Selecione até 3 nomes antes de confirmar.");
+      alert("Selecione pelo menos um membro antes de enviar.");
       return;
     }
 
-    // feedback instantâneo
     setSending(true);
     setShowSuccess(true);
 
-    // muda para tela aguardando
+    // troca pra tela aguardando após breve delay
     setTimeout(() => setStage("none"), 1200);
 
-    // envio para API (em segundo plano)
     try {
       await fetch("/api/indications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role_id,
-          nominees: selected.map((x) => x.id || x.name),
           member_id: member?.id || "anonymous",
+          nominees: selected.map((s) => s.id),
         }),
       });
     } catch (e) {
-      console.error("Falha ao registrar indicação:", e);
+      console.error("Falha ao registrar indicações:", e);
     }
   }
 
   return (
     <div>
-      <h2>Indique até 3 membros</h2>
+      <h2>Indique até {MAX_SELECTION} membros</h2>
 
       {showSuccess && (
         <div
-          className="modal"
           style={{
-            background: "rgba(0,0,0,0.4)",
             position: "fixed",
             inset: 0,
+            background: "rgba(0,0,0,0.5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -132,7 +90,6 @@ export default function IndicationScreen() {
           }}
         >
           <div
-            className="modal-body"
             style={{
               background: "#fff",
               borderRadius: 12,
@@ -142,8 +99,8 @@ export default function IndicationScreen() {
               boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
             }}
           >
-            <h4 style={{ marginBottom: 8 }}>Indicação registrada!</h4>
-            <p>Obrigado. Aguarde o próximo passo…</p>
+            <h4 style={{ marginBottom: 8 }}>Indicação enviada!</h4>
+            <p>Obrigado por participar.</p>
           </div>
         </div>
       )}
@@ -152,7 +109,6 @@ export default function IndicationScreen() {
         <p>Nenhum membro disponível.</p>
       ) : (
         <div
-          className="grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
@@ -161,10 +117,7 @@ export default function IndicationScreen() {
           }}
         >
           {members.map((m) => {
-            const key = m.id || m.name.toLowerCase();
-            const isSel = selected.some(
-              (s) => (s.id || s.name.toLowerCase()) === key
-            );
+            const isSel = selected.some((x) => x.id === m.id);
 
             const baseStyle = {
               cursor: "pointer",
@@ -176,6 +129,7 @@ export default function IndicationScreen() {
                 "transform .08s ease, box-shadow .12s ease, border-color .12s ease",
               background: "#fff",
             };
+
             const selStyle = isSel
               ? {
                   borderColor: "#22c55e",
@@ -187,37 +141,67 @@ export default function IndicationScreen() {
 
             return (
               <button
-                type="button"
-                key={key}
-                onClick={() => toggleSelect(m)}
-                aria-pressed={isSel}
+                key={m.id}
+                onClick={() => handleSelect(m)}
                 style={{ ...baseStyle, ...selStyle }}
               >
-                <img
-                  src={m.photo_url || "/logo.png"}
-                  alt={m.name}
+                <div
                   style={{
                     width: 80,
                     height: 80,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                    display: "block",
                     margin: "0 auto",
+                    background: "#f3f4f6",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     border: isSel
                       ? "2px solid #22c55e"
                       : "2px solid transparent",
+                    overflow: "hidden",
                   }}
-                />
-                <div style={{ marginTop: 8, fontWeight: 700 }}>{m.name}</div>
-                {isSel ? (
+                >
+                  {m.photo_url ? (
+                    <img
+                      src={m.photo_url}
+                      alt={m.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 28,
+                        color: "#9ca3af",
+                      }}
+                    >
+                      👤
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: "#fff",
+                  }}
+                >
+                  {m.name}
+                </div>
+                {isSel && (
                   <div
-                    style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}
+                    style={{
+                      fontSize: 12,
+                      color: "#22c55e",
+                      marginTop: 4,
+                      fontWeight: 500,
+                    }}
                   >
                     Selecionado
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>
-                    Toque para selecionar
                   </div>
                 )}
               </button>
@@ -226,9 +210,9 @@ export default function IndicationScreen() {
         </div>
       )}
 
-      <div className="row" style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 20 }}>
         <button
-          onClick={handleConfirmIndication}
+          onClick={handleSend}
           disabled={sending || selected.length === 0}
           style={{
             background: "#22c55e",
@@ -240,7 +224,7 @@ export default function IndicationScreen() {
             cursor: "pointer",
           }}
         >
-          {sending ? "Enviando…" : `Confirmar Indicação (${selected.length}/3)`}
+          {sending ? "Enviando..." : "Enviar Indicações"}
         </button>
       </div>
     </div>
