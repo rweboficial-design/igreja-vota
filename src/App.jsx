@@ -2,27 +2,27 @@
 import React from 'react'
 import useStore from './store'
 
-// ⚠️ Ajuste estes imports conforme os nomes/caminhos no seu projeto:
+// telas do membro (pastas e nomes corretos)
+import Indication from './member/IndicationScreen'
+import Voting from './member/VotingScreen'
+import Waiting from './member/WaitingScreen'
+
+// tela técnica
 import TechDashboard from './tech/TechDashboard'
-import Indication from './pages/Indication'     // se o seu for "Indicar.jsx", ajuste aqui
-import Voting from './pages/Voting'             // se for "VotingScreen.jsx", ajuste para './pages/VotingScreen'
-import Waiting from './pages/Waiting'           // se a tela de espera tiver outro nome/caminho, ajuste
-import Results from './pages/Results'           // nova página criada anteriormente
+
+// nova página de resultados acessível aos membros
+import Results from './pages/Results'
 
 export default function App() {
   const { userType, session } = useStore()
 
-  // Nova sub-aba para o perfil "member"
-  // "participar" = telas normais (Indicação / Votação / Aguardar)
-  // "resultados" = nova aba de ranking acessível a todos os membros
+  // sub-aba no perfil "member"
   const [memberTab, setMemberTab] = React.useState('participar')
 
   return (
     <div className="app">
-      {/* Quando for MEMBRO */}
       {userType === 'member' ? (
         <>
-          {/* Navegação de sub-abas do membro */}
           <nav className="tabs" style={{ marginBottom: 12 }}>
             <button
               className={memberTab === 'participar' ? 'active' : ''}
@@ -38,11 +38,9 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Conteúdo de acordo com a sub-aba */}
           {memberTab === 'resultados' ? (
             <Results />
           ) : (
-            // Fluxo original guiado pelo estágio da sessão
             session?.stage === 'indication' ? (
               <Indication />
             ) : session?.stage === 'voting' ? (
@@ -53,7 +51,6 @@ export default function App() {
           )}
         </>
       ) : (
-        // Quando for TÉCNICO/ADMIN (mantém seu dashboard técnico)
         <TechDashboard />
       )}
     </div>
