@@ -1,37 +1,56 @@
-import React, { useEffect, useState } from 'react'
-import useStore from '../store'
-import { api } from '../api'
+import React, { useMemo, useState } from "react";
+import MemberCard from "../components/MemberCard";
+import { dedupeMembers } from "../utils/members";
 
-export default function Indication(){
-  const { memberId, session } = useStore()
-  const [members, setMembers] = useState([])
-  const [picked, setPicked] = useState([])
+export default function Indicar({ allMembers = [], maxSelect = 3, onNext }) {
+  // garante que a lista não tenha duplicados
+  const members = useMemo(() => dedupeMembers(allMembers), [allMembers]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  useEffect(()=>{ api('members').then(setMembers) },[])
+  const toggle = (m) => {
+    const isSelected = selectedIds.includes(m.id ?? m._id ?? m.codigo ?? m.name);
+    if (isSelected) {
+      setSelectedIds(prev => prev.filter(x => x !== (m.id ?? m._id ?? m.codigo ?? m.name)));
+    } else {
+      if (selectedIds.length >= maxSelect) return; // trava em 3
+      setSelectedIds(prev => [...prev, (m.id ?? m._id ?? m.codigo ?? m.name)]);
+    }
+  };
 
-  const toggle = (id)=>{
-    setPicked(p=> p.includes(id) ? p.filter(x=>x!==id) : (p.length<3 ? [...p,id] : p))
-  }
-
-  const submit = async ()=>{
-    await api('indication', { method:'POST', body: JSON.stringify({ role_id: session.role_id, member_id: memberId||'anon', nominee_ids: picked }) })
-    alert('Indicações enviadas!')
-  }
+  const reachedLimit = selectedIds.length >= maxSelect;
 
   return (
-    <div>
-      <h2>Indique até 3 pessoas</h2>
-      <div className="grid">
-        {members.map(m=> (
-          <button key={m.id} className={picked.includes(m.id)?'card picked':'card'} onClick={()=>toggle(m.id)}>
-            <img src={m.photo_url} alt={m.name}/>
-            <div>{m.name}</div>
-          </button>
-        ))}
+    <div className="page">
+      <h1>Indique até {maxSelect} membros</h1>
+
+      <div className="members-grid">
+        {members.map((m) => {
+          const mKey = m.id ?? m._id ?? m.codigo ?? m.name;
+          const isSelected = selectedIds.includes(mKey);
+          return (
+            <MemberCard
+              key={mKey}
+              member={m}
+              selected={isSelected}
+              disabled={reachedLimit && !isSelected}
+              onClick={toggle}
+            />
+          );
+        })}
       </div>
-      <div className="actions">
-        <button disabled={!picked.length} onClick={submit}>Indicar</button>
+
+      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+        <button
+          disabled={selectedIds.length === 0}
+          onClick={() => onNext?.(selectedIds)}
+          className="primary"
+        >
+          Continuar
+        </button>
+        <span className="muted">
+          {selectedIds.length}/{maxSelect} selecionados
+        </span>
       </div>
     </div>
-  )
+  );
 }
