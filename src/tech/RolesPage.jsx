@@ -30,7 +30,7 @@ export default function RolesPage(){
       body: JSON.stringify({ ministry_id: current, name: name.trim() })
     });
     const data = await r.json();
-    if (data && data.ok) { setName(''); await loadRoles(current); }
+    if (data?.ok) { setName(''); await loadRoles(current); }
     else setErr('Não foi possível adicionar.');
   }
 
