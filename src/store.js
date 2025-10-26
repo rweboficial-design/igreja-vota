@@ -1,12 +1,12 @@
 // src/store.js
-import React from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from './api';
 
-const SESSION_POLL_MS = Number(import.meta.env.VITE_SESSION_POLL_MS || 1500);
+const DEFAULT_SESSION = { stage: 'none', ministry_id: '', role_id: '' };
 
 export default function useStore() {
-  // --- PERFIL com persistência no navegador ---
-  const [userType, _setUserType] = React.useState(() => {
+  // Perfil com persistência no navegador
+  const [userType, _setUserType] = useState(() => {
     try {
       const saved = localStorage.getItem('profile');
       return saved === 'tech' ? 'tech' : 'member';
@@ -15,33 +15,30 @@ export default function useStore() {
     }
   });
 
-  const setUserType = React.useCallback((type) => {
+  const setUserType = useCallback((type) => {
     const next = type === 'tech' ? 'tech' : 'member';
     _setUserType(next);
-    try {
-      localStorage.setItem('profile', next);
-    } catch {}
+    try { localStorage.setItem('profile', next); } catch {}
   }, []);
 
-  // --- SESSION ---
-  const [session, setSession] = React.useState({
-    stage: 'none',
-    ministry_id: '',
-    role_id: '',
-  });
+  // Sessão (estágio, ministério e cargo ativos)
+  const [session, setSession] = useState(DEFAULT_SESSION);
 
-  // ---- POLLING da sessão (dinâmico) ----
-import React from 'react';
-import { api } from './api';
+  // Permitir selecionar perfil via URL (?profile=tech|member)
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('profile');
+      if (p === 'tech' || p === 'member') setUserType(p);
+    } catch {}
+  }, [setUserType]);
 
-export default function useStore(){
-  // ... seu estado de userType, session, setSession etc. ficam como estão
-
-  React.useEffect(() => {
+  // Polling dinâmico da sessão
+  useEffect(() => {
     let alive = true;
     let timer = null;
 
     const tick = async () => {
+      let stageForInterval = 'none';
       try {
         const s = await api('session'); // GET /.netlify/functions/session
         if (!alive) return;
@@ -50,6 +47,7 @@ export default function useStore(){
           ministry_id: String(s?.ministry_id || ''),
           role_id: String(s?.role_id || ''),
         };
+        stageForInterval = next.stage;
         setSession(prev =>
           JSON.stringify(prev) === JSON.stringify(next) ? prev : next
         );
@@ -57,9 +55,11 @@ export default function useStore(){
         console.error('poll session error', e);
       } finally {
         if (!alive) return;
-        // ⬇️ intervalo mais curto quando a sessão está ativa
-        const ms = (s?.stage === 'indication' || s?.stage === 'voting') ? 800 : 1400;
-        timer = setTimeout(tick, ms);
+        const delay =
+          stageForInterval === 'indication' || stageForInterval === 'voting'
+            ? 800
+            : 1400;
+        timer = setTimeout(tick, delay);
       }
     };
 
@@ -67,21 +67,6 @@ export default function useStore(){
     return () => { alive = false; if (timer) clearTimeout(timer); };
   }, []);
 
-  // return { userType, setUserType, session, setSession, ... }
-}
-
-
-  // --- ALTERAR perfil via URL (ex: ?profile=tech) ---
-  React.useEffect(() => {
-    try {
-      const p = new URLSearchParams(window.location.search).get('profile');
-      if (p === 'tech' || p === 'member') {
-        setUserType(p);
-      }
-    } catch {}
-  }, [setUserType]);
-
-  // --- EXPORT ---
   return {
     userType,
     setUserType,
