@@ -9,7 +9,8 @@ import MembersPage from './MembersPage';
 import { useMembersMap } from '../utils/useMembersMap';
 
 export default function TechDashboard(){
-  const { session } = useStore();
+  // ✅ uma única declaração
+  const { session, setSession } = useStore();
 
   const [tab, setTab] = useState('control');
 
@@ -65,44 +66,38 @@ export default function TechDashboard(){
         role_id: '',
       }),
     });
+    // não precisa setSession aqui, mas pode:
+    setSession({ stage: 'none', ministry_id: '', role_id: '' });
     alert('Sessão pausada. Todos voltaram para a tela de aguarde.');
   };
 
-  // —— NOVO BOTÃO: ENCERRAR VOTAÇÃO ——
-const { session, setSession } = useStore(); // garanta que exporta setSession no store
+  // —— ENCERRAR VOTAÇÃO (rápido) ——
+  const endVoting = async () => {
+    const confirmEnd = window.confirm(
+      'Tem certeza que deseja encerrar a votação atual?\nTodos os membros voltarão para a tela de aguarde.'
+    );
+    if (!confirmEnd) return;
 
-const endVoting = async () => {
-  const confirmEnd = window.confirm(
-    'Tem certeza que deseja encerrar a votação atual?\nTodos os membros voltarão para a tela de aguarde.'
-  );
-  if (!confirmEnd) return;
+    try {
+      await api('session', {
+        method: 'POST',
+        body: JSON.stringify({
+          stage: 'none',
+          ministry_id: '',
+          role_id: '',
+        }),
+      });
 
-  try {
-    // 1) POST para gravar no backend
-    await api('session', {
-      method: 'POST',
-      body: JSON.stringify({
-        stage: 'none',
-        ministry_id: '',
-        role_id: '',
-      }),
-    });
-
-    // 2) Atualização otimista local (técnico já vê o stage none)
-    setSession({ stage: 'none', ministry_id: '', role_id: '' });
-
-    // 3) limpar selects
-    setSelectedMin('');
-    setSelectedRole('');
-
-    alert('Votação encerrada. Membros agora estão aguardando.');
-  } catch (e) {
-    console.error(e);
-    alert('Erro ao encerrar a votação.');
-  }
-};
-
-
+      // atualização otimista local
+      setSession({ stage: 'none', ministry_id: '', role_id: '' });
+      setSelectedMin('');
+      setSelectedRole('');
+      alert('Votação encerrada. Membros agora estão aguardando.');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao encerrar a votação.');
+    }
+  };
 
   // —— RESULTADOS (gera ranking do cargo selecionado) ——
   const generateResults = async ()=>{
