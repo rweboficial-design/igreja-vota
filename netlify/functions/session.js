@@ -32,7 +32,6 @@ export const handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      // ✅ prioriza "stage" e grava corretamente
       const {
         stage = 'none',
         status = 'idle',
@@ -59,7 +58,7 @@ export const handler = async (event) => {
         found[idx.status] = status;
         found[idx.ministry_id] = ministry_id;
         found[idx.role_id] = role_id;
-        found[idx.stage] = stage;            // 👈 grava o stage
+        found[idx.stage] = stage;
         found[idx.updated_at] = nowISO();
       }
 

@@ -1,30 +1,30 @@
 // src/App.jsx
-import React from 'react';
-import useStore from './store';
+import React from 'react'
+import useStore from './store'
 
 // telas do membro
-import Indication from './member/IndicationScreen';
-import Voting from './member/VotingScreen';
-import Waiting from './member/WaitingScreen';
+import Indication from './member/IndicationScreen'
+import Voting from './member/VotingScreen'
+import Waiting from './member/WaitingScreen'
 
 // técnico
-import TechDashboard from './tech/TechDashboard';
+import TechDashboard from './tech/TechDashboard'
 
 // página de resultados (somente visualização para membros)
-import Results from './pages/Results';
+import Results from './pages/Results'
 
 export default function App() {
-  const { userType, session } = useStore();
+  const { userType, session } = useStore()
 
   // sub-aba do membro: "participar" (fluxo guiado por stage) | "resultados" (só visualizar)
-  const [memberTab, setMemberTab] = React.useState('participar');
+  const [memberTab, setMemberTab] = React.useState('participar')
 
-  // 👉 sempre que entrar em indication/voting, força a aba "participar"
+  // sempre que entrar em indication/voting, força a aba "participar"
   React.useEffect(() => {
     if (session?.stage === 'indication' || session?.stage === 'voting') {
-      setMemberTab('participar');
+      setMemberTab('participar')
     }
-  }, [session?.stage]);
+  }, [session?.stage])
 
   return (
     <div className="app">
@@ -58,8 +58,9 @@ export default function App() {
           )}
         </>
       ) : (
+        // técnico SEMPRE vê o painel técnico
         <TechDashboard />
       )}
     </div>
-  );
+  )
 }
