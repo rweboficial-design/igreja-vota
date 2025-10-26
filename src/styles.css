@@ -19,3 +19,105 @@ button:disabled{ opacity:.6; cursor:not-allowed }
 .logo{ width:120px; opacity:.9 }
 .actions{ margin-top:12px }
 pre{ background:#11162a; padding:12px; border-radius:8px; overflow:auto }
+/* ====== Layout base da página ====== */
+.page {
+  padding: 16px;
+  color: #e5e7eb; /* texto */
+  background: #0f1623; /* fundo escuro sem ficar “preto chapado” */
+  min-height: calc(100vh - 60px); /* evita sensação de "tela preta" sem conteúdo */
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 8px 0 16px;
+}
+
+/* ====== Grid de membros ====== */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* ====== Card de membro ====== */
+.member-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: #101827;            /* tom azulado escuro (igual ao print) */
+  box-shadow: 0 1px 0 rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.02);
+  text-align: left;
+  transition: transform .08s ease, border-color .08s ease, box-shadow .08s ease;
+}
+.member-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.25);
+}
+.member-card:disabled {
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* Estado selecionado (igual destaque verde do print) */
+.member-card--selected {
+  border: 2px solid #22c55e;
+  background: #0f1f16;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.18);
+}
+
+/* Foto/Avatar */
+.member-card__photo {
+  display: grid;
+  place-items: center;
+  height: 84px;
+  border-radius: 12px;
+  background: #0e1422;
+}
+.member-card__photo img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* Avatar fallback: círculo e ícone roxo */
+.member-card__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #6d28d9;              /* roxo do ícone */
+  background: #eef2ff14;       /* leve roxo translúcido */
+}
+
+/* Nome (duas linhas, igual ao print) */
+.member-card__name {
+  color: #e5e7eb;
+  font-weight: 600;
+  line-height: 1.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* limita a 2 linhas */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 40px;      /* mantém altura uniforme */
+}
+
+/* Botões */
+.actions { margin-top: 16px; }
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-primary:disabled {
+  opacity: .6;
+  cursor: default;
+}

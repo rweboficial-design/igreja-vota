@@ -9,27 +9,24 @@ export default function IndicationScreen() {
   const { session } = useStore()
   const { list: members } = useMembersMap()
 
-  // estado local
-  const [selected, setSelected] = useState([])  // lista de IDs indicados
-  const [sending, setSending] = useState(false) // estado de envio
-  const [done, setDone] = useState(false)       // indica que já concluiu e deve ir para Aguardar
+  const [selected, setSelected] = useState([])   // IDs selecionados (máx. 3)
+  const [sending, setSending] = useState(false)  // estado de envio
+  const [done, setDone] = useState(false)        // após enviar, vai para Aguardar
 
-  // filtro por ministério/cargo da sessão atual
-  const available = useMemo(() => {
-    // ajuste a regra conforme seu app filtra candidatos; deixei sem filtro estrito por segurança
-    return members
+  // Lista de candidatos (se precisar, filtre por role/ministry)
+  const candidates = useMemo(() => {
+    return Array.isArray(members) ? members : []
   }, [members])
 
-  // alterna seleção de um candidato
+  // alterna seleção (até 3)
   const toggle = (id) => {
     if (sending) return
-    setSelected(prev =>
-      prev.includes(id)
-        ? prev.filter(x => x !== id)
-        : prev.length >= 3
-          ? prev // limita a 3 indicações
-          : [...prev, id]
-    )
+    setSelected(prev => {
+      const sid = String(id)
+      if (prev.includes(sid)) return prev.filter(x => x !== sid)
+      if (prev.length >= 3) return prev
+      return [...prev, sid]
+    })
   }
 
   const canSend = selected.length > 0 && selected.length <= 3 && !sending
@@ -38,7 +35,6 @@ export default function IndicationScreen() {
     if (!canSend) return
     try {
       setSending(true)
-      // corpo do envio: ajuste os nomes dos campos se seu backend esperar outro formato
       await api('indication', {
         method: 'POST',
         body: JSON.stringify({
@@ -48,7 +44,7 @@ export default function IndicationScreen() {
         }),
       })
       alert('Indicação concluída!')
-      setDone(true) // só depois do popup, troca para Aguardar
+      setDone(true) // só depois do popup vai para Aguardar
     } catch (e) {
       console.error(e)
       alert('Não foi possível enviar sua indicação. Tente novamente.')
@@ -57,58 +53,51 @@ export default function IndicationScreen() {
     }
   }
 
-  // após concluir, envia o usuário para a tela de aguarde
   if (done) return <WaitingScreen />
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Indicação</h2>
-      <p style={{ color: '#9ca3af' }}>
-        Selecione até 3 pessoas para indicar.
-      </p>
+    <div className="page">
+      <h2 className="title">Indique até 3 membros</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-        {available.map(m => {
-          const isSel = selected.includes(String(m.id))
+      <div className="member-grid">
+        {candidates.map((m) => {
+          const id = String(m.id)
+          const isSel = selected.includes(id)
+
           return (
             <button
-              key={m.id}
+              key={id}
               type="button"
-              onClick={() => toggle(String(m.id))}
-              disabled={sending}
+              onClick={() => toggle(id)}
               className={`member-card ${isSel ? 'member-card--selected' : ''}`}
-              style={{
-                textAlign: 'left',
-                padding: 10,
-                border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,.12)',
-                borderRadius: 12,
-                opacity: sending ? 0.6 : 1,
-              }}
+              aria-pressed={isSel}
+              disabled={sending}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 999,
-                  background: 'rgba(255,255,255,.08)', display: 'grid', placeItems: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {m.photoUrl
-                    ? <img src={m.photoUrl} alt={`Foto de ${m.name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontWeight: 700 }}>{(m.name || '').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase()}</span>
-                  }
-                </div>
-                <div style={{ display: 'grid' }}>
-                  <strong>{m.name}</strong>
-                  <span style={{ color: '#9ca3af', fontSize: 12 }}>ID: {m.id}</span>
-                </div>
+              <div className="member-card__photo">
+                {m.photoUrl ? (
+                  <img src={m.photoUrl} alt={`Foto de ${m.name}`} />
+                ) : (
+                  <div className="member-card__avatar">
+                    {/* Ícone pessoa (lilás) */}
+                    <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
+                      <path d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 2.686-5 6 2.239 6 5 6zm0 2c-4.418 0-8 2.91-8 6.5V22h16v-1.5c0-3.59-3.582-6.5-8-6.5z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <div className="member-card__name" title={m.name}>
+                {m.name}
               </div>
             </button>
           )
         })}
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div className="actions">
         <button
           onClick={sendIndication}
+          className="btn-primary"
           disabled={!canSend}
         >
           {sending ? 'Enviando…' : `Enviar indicação${selected.length > 1 ? 's' : ''} (${selected.length}/3)`}
