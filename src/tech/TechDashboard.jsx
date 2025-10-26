@@ -9,8 +9,7 @@ import MembersPage from './MembersPage';
 import { useMembersMap } from '../utils/useMembersMap';
 
 export default function TechDashboard(){
-  // ✅ uma única declaração
-  const { session, setSession } = useStore();
+  const { session } = useStore();
 
   const [tab, setTab] = useState('control');
 
@@ -41,7 +40,6 @@ export default function TechDashboard(){
         role_id: String(selectedRole),
       }),
     });
-    alert('Indicação iniciada. Os membros já podem indicar.');
   };
 
   const startVoting = async () => {
@@ -54,7 +52,6 @@ export default function TechDashboard(){
         role_id: String(selectedRole),
       }),
     });
-    alert('Votação iniciada. Os membros já podem votar.');
   };
 
   const goIdle = async () => {
@@ -66,37 +63,6 @@ export default function TechDashboard(){
         role_id: '',
       }),
     });
-    // não precisa setSession aqui, mas pode:
-    setSession({ stage: 'none', ministry_id: '', role_id: '' });
-    alert('Sessão pausada. Todos voltaram para a tela de aguarde.');
-  };
-
-  // —— ENCERRAR VOTAÇÃO (rápido) ——
-  const endVoting = async () => {
-    const confirmEnd = window.confirm(
-      'Tem certeza que deseja encerrar a votação atual?\nTodos os membros voltarão para a tela de aguarde.'
-    );
-    if (!confirmEnd) return;
-
-    try {
-      await api('session', {
-        method: 'POST',
-        body: JSON.stringify({
-          stage: 'none',
-          ministry_id: '',
-          role_id: '',
-        }),
-      });
-
-      // atualização otimista local
-      setSession({ stage: 'none', ministry_id: '', role_id: '' });
-      setSelectedMin('');
-      setSelectedRole('');
-      alert('Votação encerrada. Membros agora estão aguardando.');
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao encerrar a votação.');
-    }
   };
 
   // —— RESULTADOS (gera ranking do cargo selecionado) ——
@@ -194,11 +160,8 @@ export default function TechDashboard(){
           </div>
 
           <div className="row">
-            <button onClick={startIndication} disabled={!selectedMin||!selectedRole}>Iniciar Indicação</button>
-            <button onClick={startVoting}    disabled={!selectedMin||!selectedRole}>Iniciar Votação</button>
-            <button onClick={endVoting} style={{ background: '#ef4444', color: '#fff' }}>
-              Encerrar Votação
-            </button>
+            <button onClick={startIndication} disabled={!selectedMin||!selectedRole}>Indicação</button>
+            <button onClick={startVoting}    disabled={!selectedMin||!selectedRole}>Votação</button>
             <button onClick={goIdle}>Aguardar</button>
           </div>
 
