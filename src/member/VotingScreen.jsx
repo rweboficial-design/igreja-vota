@@ -9,18 +9,22 @@ export default function VotingScreen() {
   const { session } = useStore()
   const { list: members } = useMembersMap()
 
-  const [selected, setSelected] = useState('')   // um único voto
+  // estado local
+  const [selected, setSelected] = useState('')   // id do candidato selecionado
   const [sending, setSending] = useState(false)  // estado de envio
   const [done, setDone] = useState(false)        // após concluir, vai para Aguardar
 
-  // lista de candidatos (por cargo atual). Ajuste o filtro se necessário.
+  // candidatos visíveis — se quiser filtrar por cargo/ministério, ajuste aqui
   const candidates = useMemo(() => {
-    // Se você tiver uma lista de indicados no backend, troque para buscá-la.
-    // Aqui usamos todos por simplicidade.
-    return members
+    return Array.isArray(members) ? members : []
   }, [members])
 
   const canSend = !!selected && !sending
+
+  const onSelect = (id) => {
+    if (sending) return
+    setSelected(prev => (prev === id ? '' : id))
+  }
 
   const sendVote = async () => {
     if (!canSend) return
@@ -31,11 +35,11 @@ export default function VotingScreen() {
         body: JSON.stringify({
           role_id: session?.role_id,
           ministry_id: session?.ministry_id,
-          candidate_id: selected,
+          candidate_id: selected,        // único voto
         }),
       })
       alert('Votação concluída!')
-      setDone(true) // só depois do popup, muda para Aguardar
+      setDone(true)                      // só depois do popup, muda para Aguardar
     } catch (e) {
       console.error(e)
       alert('Não foi possível enviar seu voto. Tente novamente.')
@@ -44,55 +48,63 @@ export default function VotingScreen() {
     }
   }
 
+  // Depois de votar, envia o usuário pra tela de Aguardar
   if (done) return <WaitingScreen />
 
+  // Se por algum motivo não há lista ainda
+  const isEmpty = !candidates || candidates.length === 0
+
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Votação</h2>
-      <p style={{ color: '#9ca3af' }}>Escolha 1 candidato e envie seu voto.</p>
+    <div className="page">
+      <h2 className="title">Vote em 1 candidato</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-        {candidates.map(m => {
-          const isSel = selected === String(m.id)
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => !sending && setSelected(String(m.id))}
-              disabled={sending}
-              className={`member-card ${isSel ? 'member-card--selected' : ''}`}
-              style={{
-                textAlign: 'left',
-                padding: 10,
-                border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,.12)',
-                borderRadius: 12,
-                opacity: sending ? 0.6 : 1,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 999,
-                  background: 'rgba(255,255,255,.08)', display: 'grid', placeItems: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {m.photoUrl
-                    ? <img src={m.photoUrl} alt={`Foto de ${m.name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontWeight: 700 }}>{(m.name || '').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase()}</span>
-                  }
+      {isEmpty ? (
+        <p style={{ opacity: .8 }}>Carregando candidatos…</p>
+      ) : (
+        <div className="member-grid">
+          {candidates.map((m) => {
+            const id = String(m.id)
+            const isSel = selected === id
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onSelect(id)}
+                className={`member-card ${isSel ? 'member-card--selected' : ''}`}
+                aria-pressed={isSel}
+                disabled={sending}
+              >
+                <div className="member-card__photo">
+                  {m.photoUrl ? (
+                    <img src={m.photoUrl} alt={`Foto de ${m.name}`} />
+                  ) : (
+                    <div className="member-card__avatar">
+                      <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
+                        <path d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 2.686-5 6 2.239 6 5 6zm0 2c-4.418 0-8 2.91-8 6.5V22h16v-1.5c0-3.59-3.582-6.5-8-6.5z" fill="currentColor"/>
+                      </svg>
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'grid' }}>
-                  <strong>{m.name}</strong>
-                  <span style={{ color: '#9ca3af', fontSize: 12 }}>ID: {m.id}</span>
-                </div>
-              </div>
-            </button>
-          )
-        })}
-      </div>
 
-      <div style={{ marginTop: 16 }}>
+                <div className="member-card__name" title={m.name}>
+                  {m.name}
+                </div>
+
+                {isSel && (
+                  <div style={{ color: '#16a34a', fontWeight: 700, fontSize: 13 }}>
+                    Selecionado
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="actions">
         <button
           onClick={sendVote}
+          className="btn-primary"
           disabled={!canSend}
         >
           {sending ? 'Enviando…' : 'Enviar voto'}
