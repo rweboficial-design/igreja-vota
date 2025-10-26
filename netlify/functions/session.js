@@ -4,29 +4,21 @@ import { readRange, writeRange, nowISO } from './utils/google.js';
 export const handler = async (event) => {
   try {
     if (event.httpMethod === 'GET') {
-      const rows = await readRange('sessions!A:F');
-      const [h, ...d] = rows || [];
-      if (!h)
+      const rows = await readRange('sessions!A1:F2'); // só cabeçalho + linha active
+      const [h, row] = rows || [];
+      if (!h || !row) {
         return {
           statusCode: 200,
           body: JSON.stringify({ id: 'active', status: 'idle', stage: 'none' }),
         };
-
-      const idx = Object.fromEntries(h.map((x, i) => [x, i]));
-      const s = d.find((r) => r[idx.id] === 'active');
-      if (!s)
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ id: 'active', status: 'idle', stage: 'none' }),
-        };
-
+      }
       const out = {
-        id: s[idx.id],
-        status: s[idx.status],
-        ministry_id: s[idx.ministry_id],
-        role_id: s[idx.role_id],
-        stage: s[idx.stage],
-        updated_at: s[idx.updated_at],
+        id: row[0],
+        status: row[1],
+        ministry_id: row[2],
+        role_id: row[3],
+        stage: row[4],
+        updated_at: row[5],
       };
       return { statusCode: 200, body: JSON.stringify(out) };
     }
@@ -35,34 +27,22 @@ export const handler = async (event) => {
       const {
         stage = 'none',
         status = 'idle',
-        ministry_id = null,
-        role_id = null,
+        ministry_id = '',
+        role_id = '',
       } = JSON.parse(event.body || '{}');
 
-      const rows = await readRange('sessions!A:F');
-      if (!rows || rows.length === 0) {
-        await writeRange('sessions!A1', [
-          ['id', 'status', 'ministry_id', 'role_id', 'stage', 'updated_at'],
-          ['active', status, ministry_id, role_id, stage, nowISO()],
-        ]);
-        return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+      // garante cabeçalho + escreve SOMENTE A2:F2 (muito mais rápido)
+      const header = [['id','status','ministry_id','role_id','stage','updated_at']];
+      const now = nowISO();
+
+      // lê só a primeira célula pra ver se existe header
+      const existing = await readRange('sessions!A1:A1');
+      if (!existing || !existing[0] || existing[0][0] !== 'id') {
+        await writeRange('sessions!A1', header);
       }
 
-      const [h, ...d] = rows;
-      const idx = Object.fromEntries(h.map((x, i) => [x, i]));
-      let found = d.find((r) => r[idx.id] === 'active');
+      await writeRange('sessions!A2:F2', [['active', status, ministry_id, role_id, stage, now]]);
 
-      if (!found) {
-        d.push(['active', status, ministry_id, role_id, stage, nowISO()]);
-      } else {
-        found[idx.status] = status;
-        found[idx.ministry_id] = ministry_id;
-        found[idx.role_id] = role_id;
-        found[idx.stage] = stage;
-        found[idx.updated_at] = nowISO();
-      }
-
-      await writeRange('sessions!A1', [h, ...d]);
       return { statusCode: 200, body: JSON.stringify({ ok: true }) };
     }
 

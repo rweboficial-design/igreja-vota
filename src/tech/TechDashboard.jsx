@@ -69,29 +69,40 @@ export default function TechDashboard(){
   };
 
   // —— NOVO BOTÃO: ENCERRAR VOTAÇÃO ——
-  const endVoting = async () => {
-    const confirmEnd = window.confirm(
-      'Tem certeza que deseja encerrar a votação atual?\nTodos os membros voltarão para a tela de aguarde.'
-    );
-    if (!confirmEnd) return;
+const { session, setSession } = useStore(); // garanta que exporta setSession no store
 
-    try {
-      await api('session', {
-        method: 'POST',
-        body: JSON.stringify({
-          stage: 'none',
-          ministry_id: '',
-          role_id: '',
-        }),
-      });
-      alert('Votação encerrada. Membros agora estão aguardando.');
-      setSelectedMin('');
-      setSelectedRole('');
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao encerrar a votação.');
-    }
-  };
+const endVoting = async () => {
+  const confirmEnd = window.confirm(
+    'Tem certeza que deseja encerrar a votação atual?\nTodos os membros voltarão para a tela de aguarde.'
+  );
+  if (!confirmEnd) return;
+
+  try {
+    // 1) POST para gravar no backend
+    await api('session', {
+      method: 'POST',
+      body: JSON.stringify({
+        stage: 'none',
+        ministry_id: '',
+        role_id: '',
+      }),
+    });
+
+    // 2) Atualização otimista local (técnico já vê o stage none)
+    setSession({ stage: 'none', ministry_id: '', role_id: '' });
+
+    // 3) limpar selects
+    setSelectedMin('');
+    setSelectedRole('');
+
+    alert('Votação encerrada. Membros agora estão aguardando.');
+  } catch (e) {
+    console.error(e);
+    alert('Erro ao encerrar a votação.');
+  }
+};
+
+
 
   // —— RESULTADOS (gera ranking do cargo selecionado) ——
   const generateResults = async ()=>{

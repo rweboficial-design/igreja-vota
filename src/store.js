@@ -30,10 +30,16 @@ export default function useStore() {
     role_id: '',
   });
 
-  // --- POLLING da sessão ---
+  // ---- POLLING da sessão (dinâmico) ----
+import React from 'react';
+import { api } from './api';
+
+export default function useStore(){
+  // ... seu estado de userType, session, setSession etc. ficam como estão
+
   React.useEffect(() => {
     let alive = true;
-    let t = null;
+    let timer = null;
 
     const tick = async () => {
       try {
@@ -44,22 +50,26 @@ export default function useStore() {
           ministry_id: String(s?.ministry_id || ''),
           role_id: String(s?.role_id || ''),
         };
-        setSession((prev) =>
+        setSession(prev =>
           JSON.stringify(prev) === JSON.stringify(next) ? prev : next
         );
       } catch (e) {
         console.error('poll session error', e);
       } finally {
-        if (alive) t = setTimeout(tick, SESSION_POLL_MS);
+        if (!alive) return;
+        // ⬇️ intervalo mais curto quando a sessão está ativa
+        const ms = (s?.stage === 'indication' || s?.stage === 'voting') ? 800 : 1400;
+        timer = setTimeout(tick, ms);
       }
     };
 
     tick();
-    return () => {
-      alive = false;
-      if (t) clearTimeout(t);
-    };
+    return () => { alive = false; if (timer) clearTimeout(timer); };
   }, []);
+
+  // return { userType, setUserType, session, setSession, ... }
+}
+
 
   // --- ALTERAR perfil via URL (ex: ?profile=tech) ---
   React.useEffect(() => {
