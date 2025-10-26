@@ -2,6 +2,9 @@
 import React from 'react'
 import useStore from './store'
 
+// topo com botão de troca de perfil
+import Header from './components/Header'
+
 // telas do membro
 import Indication from './member/IndicationScreen'
 import Voting from './member/VotingScreen'
@@ -16,10 +19,10 @@ import Results from './pages/Results'
 export default function App() {
   const { userType, session } = useStore()
 
-  // sub-aba do membro: "participar" (fluxo guiado por stage) | "resultados" (só visualizar)
+  // sub-aba do membro
   const [memberTab, setMemberTab] = React.useState('participar')
 
-  // sempre que entrar em indication/voting, força a aba "participar"
+  // quando técnico mudar o estágio, força a aba "participar"
   React.useEffect(() => {
     if (session?.stage === 'indication' || session?.stage === 'voting') {
       setMemberTab('participar')
@@ -28,9 +31,11 @@ export default function App() {
 
   return (
     <div className="app">
+      <Header />
+
       {userType === 'member' ? (
         <>
-          <nav className="tabs" style={{ marginBottom: 12 }}>
+          <nav className="tabs" style={{ margin: '12px 0' }}>
             <button
               className={memberTab === 'participar' ? 'active' : ''}
               onClick={() => setMemberTab('participar')}
@@ -58,7 +63,6 @@ export default function App() {
           )}
         </>
       ) : (
-        // técnico SEMPRE vê o painel técnico
         <TechDashboard />
       )}
     </div>

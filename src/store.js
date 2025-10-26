@@ -37,4 +37,39 @@ export default function useStore(){
     userType, setUserType,
     session, setSession,
   };
+// dentro do seu hook useStore():
+
+// 3.1) estado com persistência no navegador
+const [userType, _setUserType] = React.useState(() => {
+  try {
+    const saved = localStorage.getItem('profile')
+    return saved === 'tech' ? 'tech' : 'member'
+  } catch {
+    return 'member'
+  }
+})
+
+// 3.2) setter que salva no localStorage
+const setUserType = React.useCallback((type) => {
+  const next = type === 'tech' ? 'tech' : 'member'
+  _setUserType(next)
+  try { localStorage.setItem('profile', next) } catch {}
+}, [])
+
+// 3.3) (opcional) permitir trocar via URL ?profile=tech|member
+React.useEffect(() => {
+  try {
+    const p = new URLSearchParams(window.location.search).get('profile')
+    if (p === 'tech' || p === 'member') {
+      setUserType(p)
+    }
+  } catch {}
+}, [setUserType])
+
+// 3.4) exporte no return do store
+return {
+  userType, setUserType,
+  // ... já existentes: session, setSession, etc
+}
+
 }
