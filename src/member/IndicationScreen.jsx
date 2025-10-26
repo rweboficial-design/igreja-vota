@@ -1,4 +1,3 @@
-// src/member/IndicationScreen.jsx
 import React, { useMemo, useState } from 'react'
 import { api } from '../api'
 import useStore from '../store'
@@ -9,28 +8,21 @@ export default function IndicationScreen() {
   const { session } = useStore()
   const { list: members } = useMembersMap()
 
-  // Selecionados (até 3), estado de envio e conclusão
-  const [selected, setSelected] = useState([])      // array de IDs (string)
+  const [selected, setSelected] = useState([])
   const [sending, setSending] = useState(false)
   const [done, setDone] = useState(false)
 
-  // Guardar quais imagens falharam para cair no fallback
-  const [imgError, setImgError] = useState({})      // { [id]: true }
-
-  // Lista de candidatos — ajuste o filtro se quiser restringir por ministério/cargo
   const candidates = useMemo(() => {
     if (!Array.isArray(members)) return []
-    // Ex.: filtrar por session.role_id ou session.ministry_id (se fizer sentido no seu app)
-    // return members.filter(m => String(m.ministry_id) === String(session.ministry_id))
     return members
-  }, [members /*, session*/])
+  }, [members])
 
   const toggle = (id) => {
     if (sending) return
-    setSelected(prev => {
+    setSelected((prev) => {
       const sid = String(id)
-      if (prev.includes(sid)) return prev.filter(x => x !== sid)
-      if (prev.length >= 3) return prev // impede selecionar > 3
+      if (prev.includes(sid)) return prev.filter((x) => x !== sid)
+      if (prev.length >= 3) return prev
       return [...prev, sid]
     })
   }
@@ -46,20 +38,19 @@ export default function IndicationScreen() {
         body: JSON.stringify({
           role_id: session?.role_id,
           ministry_id: session?.ministry_id,
-          nominees: selected, // array de IDs (string)
+          nominees: selected,
         }),
       })
       alert('Indicação concluída!')
-      setDone(true) // só depois do popup vai para Aguardar
+      setDone(true)
     } catch (e) {
       console.error(e)
-      alert('Não foi possível enviar sua indicação. Tente novamente.')
+      alert('Erro ao enviar sua indicação. Tente novamente.')
     } finally {
       setSending(false)
     }
   }
 
-  // Após concluir, renderiza a tela de Aguardar
   if (done) return <WaitingScreen />
 
   const isEmpty = !candidates || candidates.length === 0
@@ -69,64 +60,21 @@ export default function IndicationScreen() {
       <h2 className="title">Indique até 3 membros</h2>
 
       {isEmpty ? (
-        <p style={{ opacity: .8 }}>Carregando membros…</p>
+        <p style={{ opacity: 0.8 }}>Carregando membros...</p>
       ) : (
-        <div className="member-grid">
+        <div className="member-list">
           {candidates.map((m) => {
             const id = String(m.id)
             const isSel = selected.includes(id)
-            const failed = !!imgError[id]
-            const hasPhoto = !!m.photoUrl && !failed
-
-            // Utilitário: iniciais do nome
-            const initials = (m.name || '')
-              .trim()
-              .split(/\s+/)
-              .slice(0, 2)
-              .map(p => p[0]?.toUpperCase() ?? '')
-              .join('')
-
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => toggle(id)}
-                className={`member-card ${isSel ? 'member-card--selected' : ''}`}
-                aria-pressed={isSel}
+                className={`member-name ${isSel ? 'selected' : ''}`}
                 disabled={sending}
               >
-                <div className="member-card__photo">
-                  {hasPhoto ? (
-                    <img
-                      src={m.photoUrl}
-                      alt={`Foto de ${m.name}`}
-                      onError={() => setImgError(prev => ({ ...prev, [id]: true }))}
-                    />
-                  ) : (
-                    <div className="member-card__avatar" aria-hidden="true">
-                      {/* Ícone/Texto de fallback */}
-                      {initials || (
-                        <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
-                          <path
-                            d="M12 12c2.761 0 5-2.686 5-6s-2.239-6-5-6-5 2.686-5 6 2.239 6 5 6zm0 2c-4.418 0-8 2.91-8 6.5V22h16v-1.5c0-3.59-3.582-6.5-8-6.5z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Nome aparece UMA ÚNICA vez */}
-                <div className="member-card__name" title={m.name}>
-                  {m.name}
-                </div>
-
-                {isSel && (
-                  <div style={{ color: '#16a34a', fontWeight: 700, fontSize: 13 }}>
-                    Selecionado
-                  </div>
-                )}
+                {m.name}
               </button>
             )
           })}
@@ -139,7 +87,7 @@ export default function IndicationScreen() {
           className="btn-primary"
           disabled={!canSend}
         >
-          {sending ? 'Enviando…' : `Enviar indicação${selected.length > 1 ? 's' : ''} (${selected.length}/3)`}
+          {sending ? 'Enviando…' : `Enviar indicação (${selected.length}/3)`}
         </button>
       </div>
     </div>
