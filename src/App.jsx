@@ -1,23 +1,30 @@
 // src/App.jsx
-import React from 'react'
-import useStore from './store'
+import React from 'react';
+import useStore from './store';
 
-// telas do membro (pastas e nomes corretos)
-import Indication from './member/IndicationScreen'
-import Voting from './member/VotingScreen'
-import Waiting from './member/WaitingScreen'
+// telas do membro
+import Indication from './member/IndicationScreen';
+import Voting from './member/VotingScreen';
+import Waiting from './member/WaitingScreen';
 
-// tela técnica
-import TechDashboard from './tech/TechDashboard'
+// técnico
+import TechDashboard from './tech/TechDashboard';
 
-// nova página de resultados acessível aos membros
-import Results from './pages/Results'
+// página de resultados (somente visualização para membros)
+import Results from './pages/Results';
 
 export default function App() {
-  const { userType, session } = useStore()
+  const { userType, session } = useStore();
 
-  // sub-aba no perfil "member"
-  const [memberTab, setMemberTab] = React.useState('participar')
+  // sub-aba do membro: "participar" (fluxo guiado por stage) | "resultados" (só visualizar)
+  const [memberTab, setMemberTab] = React.useState('participar');
+
+  // 👉 sempre que entrar em indication/voting, força a aba "participar"
+  React.useEffect(() => {
+    if (session?.stage === 'indication' || session?.stage === 'voting') {
+      setMemberTab('participar');
+    }
+  }, [session?.stage]);
 
   return (
     <div className="app">
@@ -54,5 +61,5 @@ export default function App() {
         <TechDashboard />
       )}
     </div>
-  )
+  );
 }

@@ -32,7 +32,7 @@ export const handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      // >>> Corrigido: prioriza "stage" corretamente <<<
+      // ✅ prioriza "stage" e grava corretamente
       const {
         stage = 'none',
         status = 'idle',
@@ -59,7 +59,7 @@ export const handler = async (event) => {
         found[idx.status] = status;
         found[idx.ministry_id] = ministry_id;
         found[idx.role_id] = role_id;
-        found[idx.stage] = stage; // <<< aqui ele grava corretamente >>>
+        found[idx.stage] = stage;            // 👈 grava o stage
         found[idx.updated_at] = nowISO();
       }
 
@@ -69,6 +69,7 @@ export const handler = async (event) => {
 
     return { statusCode: 405, body: 'Method Not Allowed' };
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+    console.error('session error:', e);
+    return { statusCode: 500, body: JSON.stringify({ error: e.message || String(e) }) };
   }
 };
