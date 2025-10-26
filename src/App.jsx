@@ -13,20 +13,16 @@ import Waiting from './member/WaitingScreen'
 // técnico
 import TechDashboard from './tech/TechDashboard'
 
-// página de resultados (somente visualização para membros)
-import Results from './pages/Results'
+// ⚠️ Removido: import Results (membro não verá mais resultados)
 
 export default function App() {
   const { userType, session } = useStore()
 
-  // sub-aba do membro
-  const [memberTab, setMemberTab] = React.useState('participar')
+  // sub-aba do membro foi removida — membro só “Participa” conforme o stage
 
-  // quando técnico mudar o estágio, força a aba "participar"
+  // garante que, quando técnico muda o estágio, o membro troca de tela automaticamente
   React.useEffect(() => {
-    if (session?.stage === 'indication' || session?.stage === 'voting') {
-      setMemberTab('participar')
-    }
+    // não precisamos mais controlar aba, apenas deixei para evitar warnings
   }, [session?.stage])
 
   return (
@@ -34,35 +30,16 @@ export default function App() {
       <Header />
 
       {userType === 'member' ? (
-        <>
-          <nav className="tabs" style={{ margin: '12px 0' }}>
-            <button
-              className={memberTab === 'participar' ? 'active' : ''}
-              onClick={() => setMemberTab('participar')}
-            >
-              Participar
-            </button>
-            <button
-              className={memberTab === 'resultados' ? 'active' : ''}
-              onClick={() => setMemberTab('resultados')}
-            >
-              Resultados
-            </button>
-          </nav>
-
-          {memberTab === 'resultados' ? (
-            <Results />
-          ) : (
-            session?.stage === 'indication' ? (
-              <Indication />
-            ) : session?.stage === 'voting' ? (
-              <Voting />
-            ) : (
-              <Waiting />
-            )
-          )}
-        </>
+        // Membro só participa (nada de Resultados aqui)
+        session?.stage === 'indication' ? (
+          <Indication />
+        ) : session?.stage === 'voting' ? (
+          <Voting />
+        ) : (
+          <Waiting />
+        )
       ) : (
+        // Técnico sempre vê o painel técnico — Resultados ficam lá
         <TechDashboard />
       )}
     </div>
